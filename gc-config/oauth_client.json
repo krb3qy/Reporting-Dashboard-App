@@ -1,0 +1,8 @@
+{
+  "name": "Reporting Dashboard - OAuth",
+  "description": "Implicit Grant OAuth for Reporting Dashboard (GitHub Pages)",
+  "authorizedGrantType": "TOKEN",
+  "registeredRedirectUri": ["https://krb3qy.github.io/Reporting-Dashboard-App/"],
+  "scope": ["analytics", "analytics:readonly"],
+  "accessTokenValiditySeconds": 86400
+}

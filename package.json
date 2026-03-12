@@ -1,0 +1,25 @@
+{
+  "name": "reporting-dashboard-app",
+  "version": "1.0.0",
+  "description": "UVA Health Genesys Cloud Reporting Dashboard",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "vite build && gh-pages -d dist"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@vitejs/plugin-react": "^4.7.0",
+    "gh-pages": "^6.3.0",
+    "lucide-react": "^0.577.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.1",
+    "vite": "^6.4.1"
+  }
+}

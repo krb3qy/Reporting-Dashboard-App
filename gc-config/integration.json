@@ -1,0 +1,6 @@
+{
+  "name": "Reporting Dashboard",
+  "integrationType": {
+    "id": "shared-clientapp-iframe"
+  }
+}
