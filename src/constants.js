@@ -139,6 +139,56 @@ export const FILTER_TYPES = [
   { id: 'usedRouting',    label: 'Routing Method',   dimension: 'usedRouting',             searchable: false, iconName: 'GitBranch' },
 ];
 
+// Analytics table column definitions — maps raw GC metrics to readable columns
+// stat: 'count' uses metric.stats.count, 'sum' uses metric.stats.sum
+export const ANALYTICS_COLUMNS = [
+  // Volume counts
+  { key: 'nOffered',             label: 'Offered',             stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: true },
+  { key: 'nConnected',           label: 'Connected',           stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: true },
+  { key: 'nConversations',       label: 'Conversations',       stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+  { key: 'tAnswered',            label: 'Answered',            stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: true },
+  { key: 'tAbandon',             label: 'Abandoned',           stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: true },
+  { key: 'nTransferred',         label: 'Transferred',         stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+  { key: 'nBlindTransferred',    label: 'Blind Transferred',   stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+  { key: 'nConsultTransferred',  label: 'Consult Transferred', stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+  { key: 'nConsult',             label: 'Consult',             stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+  { key: 'nError',               label: 'Errors',              stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+  { key: 'nOverSla',             label: 'Over SLA',            stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+  { key: 'tFlowOut',             label: 'Flow Out',            stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+  { key: 'tShortAbandon',        label: 'Short Abandon',       stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+  { key: 'tVoicemail',           label: 'Voicemail',           stat: 'count', unit: 'count',        group: 'Volume',    defaultVisible: false },
+
+  // Durations (avg = sum / count, displayed as m:ss)
+  { key: 'tHandle',              label: 'Avg Handle Time',     stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: true },
+  { key: 'tTalk',                label: 'Avg Talk Time',       stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: true },
+  { key: 'tHeld',                label: 'Avg Hold Time',       stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: false },
+  { key: 'tAcw',                 label: 'Avg ACW Time',        stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: true },
+  { key: 'tWait',                label: 'Avg Wait Time',       stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: true },
+  { key: 'tAlert',               label: 'Avg Alert Time',      stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: false },
+  { key: 'tAcd',                 label: 'Avg ACD Time',        stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: false },
+  { key: 'tIvr',                 label: 'Avg IVR Time',        stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: false },
+  { key: 'tAbandon',             label: 'Avg Abandon Time',    stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: false, colKey: 'tAbandon_avg' },
+  { key: 'tConnected',           label: 'Avg Connected Time',  stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: false },
+  { key: 'tNotResponding',       label: 'Avg Not Responding',  stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: false },
+  { key: 'tDialing',             label: 'Avg Dialing Time',    stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: false },
+  { key: 'tContacting',          label: 'Avg Contacting Time', stat: 'avg',   unit: 'milliseconds', group: 'Durations', defaultVisible: false },
+
+  // Outbound
+  { key: 'nOutbound',            label: 'Outbound',            stat: 'count', unit: 'count',        group: 'Outbound',  defaultVisible: false },
+  { key: 'nOutboundAttempted',    label: 'Outbound Attempted',  stat: 'count', unit: 'count',        group: 'Outbound',  defaultVisible: false },
+  { key: 'nOutboundConnected',    label: 'Outbound Connected',  stat: 'count', unit: 'count',        group: 'Outbound',  defaultVisible: false },
+  { key: 'nOutboundAbandoned',    label: 'Outbound Abandoned',  stat: 'count', unit: 'count',        group: 'Outbound',  defaultVisible: false },
+
+  // Response times
+  { key: 'tAgentResponseTime',   label: 'Avg Agent Response',  stat: 'avg',   unit: 'milliseconds', group: 'Response',  defaultVisible: false },
+  { key: 'tUserResponseTime',    label: 'Avg User Response',   stat: 'avg',   unit: 'milliseconds', group: 'Response',  defaultVisible: false },
+  { key: 'tFirstConnect',        label: 'Avg First Connect',   stat: 'avg',   unit: 'milliseconds', group: 'Response',  defaultVisible: false },
+
+  // Service level
+  { key: 'oServiceLevel',        label: 'Service Level',       stat: 'count', unit: 'percent',      group: 'SLA',       defaultVisible: false },
+  { key: 'oServiceTarget',       label: 'Service Target',      stat: 'count', unit: 'count',        group: 'SLA',       defaultVisible: false },
+];
+
 // Static option sets for non-searchable filters
 export const STATIC_FILTER_OPTIONS = {
   mediaTypes: ['voice', 'callback', 'chat', 'email', 'message'],

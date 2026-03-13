@@ -1,14 +1,14 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   RefreshCw, PlusCircle, MoreVertical, Layout, Table, Calculator, Trash2, LogOut,
 } from 'lucide-react';
 import { AVAILABLE_RAW_METRICS } from './constants';
 import PieChartTile from './components/PieChartTile';
 import BarChartTile from './components/BarChartTile';
-import SidebarBtn from './components/SidebarBtn';
 import FilterEngine from './components/FilterEngine';
 import FormulaStudio from './components/FormulaStudio';
 import DateRangePicker from './components/DateRangePicker';
+import AnalyticsView from './components/AnalyticsView';
 import { init as gcInit, isAuthenticated, logout } from './services/gcAuth';
 import { queryConversationAggregates, getQueues, getDivisions, getSkills, getWrapUpCodes, getUsers, buildAggregateFilter } from './services/gcApi';
 import { formatValue } from './utils/format';
@@ -29,7 +29,7 @@ const MOCK_FILTER_OPTIONS = {
   ],
 };
 
-function generateMockData(queueOpts, divisionOpts) {
+function generateMockData(queueOpts) {
   return {
     results: queueOpts.map((q) => ({
       group: { queueId: q.id },
@@ -55,6 +55,12 @@ function buildNameLookup(filterOptions) {
   }
   return map;
 }
+
+const TABS = [
+  { id: 'dashboard', label: 'Visuals', icon: Layout },
+  { id: 'table', label: 'Analytics', icon: Table },
+  { id: 'config', label: 'Custom Logic', icon: Calculator },
+];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -83,8 +89,10 @@ export default function App() {
 
   const nameLookup = useMemo(() => buildNameLookup(filterOptions), [filterOptions]);
 
-  // Ref to track if initial load is done (prevent double-query)
   const initialLoadDone = useRef(false);
+
+  // Sidebar + header date picker visible only on Visuals and Custom Logic tabs
+  const showSidebar = activeTab !== 'table';
 
   // Auto-authenticate on mount
   useEffect(() => {
@@ -92,7 +100,7 @@ export default function App() {
     if (result.authenticated) {
       setAuthenticated(true);
     } else if (result.dev) {
-      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues, MOCK_FILTER_OPTIONS.divisions));
+      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues));
     }
   }, []);
 
@@ -102,16 +110,10 @@ export default function App() {
     loadFilterOptions();
   }, [authenticated]);
 
-  // Query data when authenticated (initial + when filters/dates change)
+  // Query data when filters/dates change (Visuals tab data)
   useEffect(() => {
-    if (!authenticated) return;
-    // Skip the very first render — loadFilterOptions triggers the initial query
-    if (!initialLoadDone.current) return;
-
-    // Debounce: wait 600ms after last filter/date change before re-querying
-    const timer = setTimeout(() => {
-      queryData();
-    }, 600);
+    if (!authenticated || !initialLoadDone.current) return;
+    const timer = setTimeout(() => queryData(), 600);
     return () => clearTimeout(timer);
   }, [filterValues, dateStart, dateEnd]);
 
@@ -137,13 +139,11 @@ export default function App() {
       }));
 
       setOptionsLoaded(true);
-
-      // Run initial data query
       await queryData();
       initialLoadDone.current = true;
     } catch (err) {
       setError(err.message);
-      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues, MOCK_FILTER_OPTIONS.divisions));
+      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues));
     } finally {
       setLoading(false);
     }
@@ -155,13 +155,7 @@ export default function App() {
     try {
       const interval = `${dateStart.toISOString()}/${dateEnd.toISOString()}`;
       const filter = buildAggregateFilter(filterValues);
-
-      const data = await queryConversationAggregates({
-        interval,
-        groupBy: ['queueId'],
-        filter,
-      });
-
+      const data = await queryConversationAggregates({ interval, groupBy: ['queueId'], filter });
       setRawData(data);
     } catch (err) {
       setError(err.message);
@@ -175,9 +169,6 @@ export default function App() {
     setDateEnd(end);
   }
 
-  // Process data — NO client-side dimension filtering.
-  // All filtering is done server-side via API predicates.
-  // This just computes KPI formulas from the raw metric stats.
   const processedData = useMemo(() => {
     return (rawData.results || []).map((row) => {
       const statsDict = {};
@@ -205,12 +196,8 @@ export default function App() {
     if (authenticated) {
       queryData();
     } else {
-      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues, MOCK_FILTER_OPTIONS.divisions));
+      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues));
     }
-  }
-
-  function resolveName(id) {
-    return nameLookup[id] || id;
   }
 
   // Iframe security check — commented out for testing
@@ -234,85 +221,107 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen bg-[#F4F7F9] text-slate-900 overflow-hidden font-sans">
-      {/* Unified header bar — full width */}
-      <header className="h-20 bg-white border-b border-slate-200 flex items-center shrink-0 shadow-sm z-30">
-        <div className="w-72 shrink-0 h-full flex items-center justify-center px-4">
-          <img src={import.meta.env.BASE_URL + "logo.svg"} alt="UVA Health" className="h-12" />
+      {/* Unified header bar */}
+      <header className="h-16 bg-white border-b border-slate-200 flex items-center shrink-0 shadow-sm z-30">
+        {/* Logo */}
+        <div className="h-full flex items-center justify-center px-6">
+          <img src={import.meta.env.BASE_URL + "logo.svg"} alt="UVA Health" className="h-10" />
         </div>
-        <div className="flex-1 flex items-center justify-between px-10">
-          <div className="flex flex-col">
-            <span className="text-[10px] font-black text-[#4D4D4F] uppercase tracking-widest">Command Center</span>
-            <h1 className="text-lg font-black text-[#232D4B]">OPERATIONAL DASHBOARD</h1>
-          </div>
-          <div className="flex items-center gap-4">
+
+        {/* Tab nav */}
+        <nav className="flex items-center gap-1 px-4 h-full">
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors ${
+                  isActive
+                    ? 'bg-[#E57200] text-white shadow-md shadow-[#E57200]/20'
+                    : 'text-slate-500 hover:bg-slate-100 hover:text-[#232D4B]'
+                }`}
+              >
+                <Icon size={14} /> {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="flex-1" />
+
+        {/* Right side controls — only for non-analytics tabs */}
+        {showSidebar && (
+          <div className="flex items-center gap-4 px-8">
             <DateRangePicker startDate={dateStart} endDate={dateEnd} onChange={handleDateChange} />
             <button onClick={handleRefresh} className="p-2 text-[#4D4D4F] hover:text-[#E57200] transition-colors">
-              <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
-        </div>
+        )}
+
+        {/* Logout */}
+        {authenticated && (
+          <button
+            onClick={logout}
+            className="flex items-center gap-2 px-4 py-2 mr-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#E57200] transition-colors"
+          >
+            <LogOut size={14} />
+          </button>
+        )}
       </header>
 
       {/* Debug bar — remove after testing */}
-      <div className="bg-slate-800 text-white text-[10px] font-mono px-10 py-1.5 flex gap-6 shrink-0 z-20">
+      <div className="bg-slate-800 text-white text-[10px] font-mono px-8 py-1 flex gap-6 shrink-0 z-20">
         <span>auth: {authenticated ? 'yes' : 'no'}</span>
         <span>options: {optionsLoaded ? 'loaded' : 'pending'}</span>
         <span>results: {rawData.results?.length ?? 0}</span>
         <span>processed: {processedData.length}</span>
         <span>loading: {loading ? 'yes' : 'no'}</span>
-        <span>interval: {dateStart.toISOString().split('T')[0]} to {dateEnd.toISOString().split('T')[0]}</span>
         {error && <span className="text-red-400">ERR: {error}</span>}
-        <span>filters: {Object.entries(filterValues).filter(([,v]) => v.length > 0).map(([k,v]) => `${k}(${v.length})`).join(', ') || 'none'}</span>
       </div>
 
+      {/* Body */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar — starts below header */}
-        <aside className="w-72 bg-[#232D4B] flex flex-col shadow-2xl z-10 shrink-0">
-          <div className="flex-1 overflow-y-auto p-5 space-y-6">
-            <FilterEngine
-              activeFilters={activeFilters}
-              setActiveFilters={setActiveFilters}
-              filterValues={filterValues}
-              setFilterValues={setFilterValues}
-              filterOptions={filterOptions}
-              collapsedFilters={collapsedFilters}
-              setCollapsedFilters={setCollapsedFilters}
-              nameLookup={nameLookup}
-            />
-
-            <nav className="space-y-2 pt-5 border-t border-white/5">
-              <SidebarBtn active={activeTab === 'dashboard'} label="Visuals" icon={<Layout size={16} />} onClick={() => setActiveTab('dashboard')} />
-              <SidebarBtn active={activeTab === 'table'} label="Analytics" icon={<Table size={16} />} onClick={() => setActiveTab('table')} />
-              <SidebarBtn active={activeTab === 'config'} label="Custom Logic" icon={<Calculator size={16} />} onClick={() => setActiveTab('config')} />
-            </nav>
-          </div>
-
-          {authenticated && (
-            <div className="p-5 border-t border-white/5">
-              <button
-                onClick={logout}
-                className="w-full flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-400 hover:bg-white/5 hover:text-white transition-all"
-              >
-                <LogOut size={16} /> Logout
-              </button>
+        {/* Sidebar — only for Visuals and Custom Logic */}
+        {showSidebar && (
+          <aside className="w-72 bg-[#232D4B] flex flex-col shadow-2xl z-10 shrink-0">
+            <div className="flex-1 overflow-y-auto p-5 space-y-6">
+              <FilterEngine
+                activeFilters={activeFilters}
+                setActiveFilters={setActiveFilters}
+                filterValues={filterValues}
+                setFilterValues={setFilterValues}
+                filterOptions={filterOptions}
+                collapsedFilters={collapsedFilters}
+                setCollapsedFilters={setCollapsedFilters}
+                nameLookup={nameLookup}
+              />
             </div>
-          )}
-        </aside>
+          </aside>
+        )}
 
         {/* Main content */}
-        <main className="flex-1 overflow-y-auto p-12">
-          {activeTab === 'dashboard' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 auto-rows-[420px]">
-              {metricsConfig.map((m) => (
-                <div
-                  key={m.id}
-                  className={`bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-10 flex flex-col relative group transition-all duration-300 ${m.size === '2x1' ? 'lg:col-span-2' : ''}`}
-                >
-                  <div className="flex justify-between items-center mb-4 shrink-0">
-                    <h3 className="text-xs font-black uppercase tracking-[0.15em] text-[#232D4B] flex items-center gap-3">
-                      <span className="w-2 h-6 bg-[#E57200] rounded-full" /> {m.name}
-                    </h3>
-                    <div className="flex items-center gap-2">
+        {activeTab === 'table' ? (
+          <AnalyticsView
+            filterOptions={filterOptions}
+            nameLookup={nameLookup}
+            authenticated={authenticated}
+          />
+        ) : (
+          <main className="flex-1 overflow-y-auto p-12">
+            {activeTab === 'dashboard' && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 auto-rows-[420px]">
+                {metricsConfig.map((m) => (
+                  <div
+                    key={m.id}
+                    className={`bg-white rounded-[2.5rem] shadow-sm border border-slate-200 p-10 flex flex-col relative group transition-all duration-300 ${m.size === '2x1' ? 'lg:col-span-2' : ''}`}
+                  >
+                    <div className="flex justify-between items-center mb-4 shrink-0">
+                      <h3 className="text-xs font-black uppercase tracking-[0.15em] text-[#232D4B] flex items-center gap-3">
+                        <span className="w-2 h-6 bg-[#E57200] rounded-full" /> {m.name}
+                      </h3>
                       <div className="relative">
                         <button onClick={() => setActiveMenu(activeMenu === m.id ? null : m.id)} className="p-2 text-slate-300 hover:text-slate-600">
                           <MoreVertical size={18} />
@@ -335,62 +344,35 @@ export default function App() {
                         )}
                       </div>
                     </div>
+                    <div className="flex-1 overflow-visible">
+                      {m.chartType === 'pie' ? (
+                        <PieChartTile data={processedData} metricId={m.id} metricName={m.name} unit={m.unit} nameLookup={nameLookup} />
+                      ) : (
+                        <BarChartTile data={processedData} metricId={m.id} metricName={m.name} unit={m.unit} nameLookup={nameLookup} />
+                      )}
+                    </div>
                   </div>
-                  <div className="flex-1 overflow-visible">
-                    {m.chartType === 'pie' ? (
-                      <PieChartTile data={processedData} metricId={m.id} metricName={m.name} unit={m.unit} nameLookup={nameLookup} />
-                    ) : (
-                      <BarChartTile data={processedData} metricId={m.id} metricName={m.name} unit={m.unit} nameLookup={nameLookup} />
-                    )}
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() => setActiveTab('config')}
-                className="border-4 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-300 hover:text-[#E57200] hover:border-[#E57200]/30 transition-all gap-4 group"
-              >
-                <PlusCircle size={48} className="group-hover:scale-110 transition-transform" />
-                <span className="font-black uppercase tracking-[0.2em] text-xs">Add Dashboard Metric</span>
-              </button>
-            </div>
-          )}
-
-          {activeTab === 'config' && (
-            <FormulaStudio
-              metricsConfig={metricsConfig}
-              setMetricsConfig={setMetricsConfig}
-              newMetric={newMetric}
-              setNewMetric={setNewMetric}
-            />
-          )}
-
-          {activeTab === 'table' && (
-            <div className="bg-white rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Queue</th>
-                      {metricsConfig.map((m) => (
-                        <th key={m.id} className="p-8 text-[10px] font-black uppercase tracking-widest text-[#E57200]">{m.name}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {processedData.map((row, i) => (
-                      <tr key={i} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-8 text-xs font-black text-[#232D4B]">{resolveName(row.queueId)}</td>
-                        {row.kpis.map((k) => (
-                          <td key={k.id} className="p-8 text-xs font-black text-slate-700">{formatValue(k.value, k.unit)}</td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                ))}
+                <button
+                  onClick={() => setActiveTab('config')}
+                  className="border-4 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-300 hover:text-[#E57200] hover:border-[#E57200]/30 transition-all gap-4 group"
+                >
+                  <PlusCircle size={48} className="group-hover:scale-110 transition-transform" />
+                  <span className="font-black uppercase tracking-[0.2em] text-xs">Add Dashboard Metric</span>
+                </button>
               </div>
-            </div>
-          )}
-        </main>
+            )}
+
+            {activeTab === 'config' && (
+              <FormulaStudio
+                metricsConfig={metricsConfig}
+                setMetricsConfig={setMetricsConfig}
+                newMetric={newMetric}
+                setNewMetric={setNewMetric}
+              />
+            )}
+          </main>
+        )}
       </div>
     </div>
   );
