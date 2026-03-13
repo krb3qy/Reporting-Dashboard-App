@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   RefreshCw, PlusCircle, MoreVertical, Layout, Table, Calculator, Trash2,
   ScrollText, Menu, X,
@@ -10,15 +10,25 @@ import FilterEngine from './components/FilterEngine';
 import FormulaStudio from './components/FormulaStudio';
 import DateRangePicker from './components/DateRangePicker';
 import AnalyticsView from './components/AnalyticsView';
+import ViewPicker from './components/ViewPicker';
 import { init as gcInit } from './services/gcAuth';
 import { queryConversationAggregates, getQueues, getDivisions, getSkills, getWrapUpCodes, getUsers, getLanguages, getTeams, getOutboundCampaigns, getCurrentUser, buildAggregateFilter, getApiLogs, onApiLogUpdate } from './services/gcApi';
 import { formatValue } from './utils/format';
+import { getSavedViews, saveView, deleteView as deleteStoredView, renameView as renameStoredView, getDefaultViewId, setDefaultView, clearDefaultView } from './services/viewStore';
 
 // Users who can see the DEV badge and API Log tab
 const DEV_USER_IDS = [
   '368cb040-5592-4cf5-8658-a973230c67ee', // Alex Specha
   '78829cbd-cd25-4485-a96e-95452e851746',
 ];
+
+const DEFAULT_METRICS = [
+  { id: 'mc_1', name: 'Answer Rate', formula: '(tAnswered_count / nOffered_count) * 100', chartType: 'pie', size: '1x1', unit: 'percent' },
+  { id: 'mc_2', name: 'Avg Handle Time', formula: '(tTalk_sum + tHeld_sum + tAcw_sum) / tAnswered_count / 1000', chartType: 'bar', size: '1x1', unit: 'seconds' },
+  { id: 'mc_3', name: 'Abandon Rate', formula: '(tAbandon_count / nOffered_count) * 100', chartType: 'bar', size: '2x1', unit: 'percent' },
+];
+
+const DEFAULT_FILTER_VALUES = { queues: [], divisions: [], mediaTypes: [], direction: [], wrapUpCode: [], skills: [], users: [], dnis: [], ani: [], disconnectType: [], interactionType: [], usedRouting: [], messageType: [], requestedLanguageId: [], teamId: [], provider: [], purpose: [] };
 
 // Mock filter options (used when not authenticated)
 const MOCK_FILTER_OPTIONS = {
@@ -71,14 +81,10 @@ const BASE_TABS = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [metricsConfig, setMetricsConfig] = useState([
-    { id: Date.now() + 1, name: 'Answer Rate', formula: '(tAnswered_count / nOffered_count) * 100', chartType: 'pie', size: '1x1', unit: 'percent' },
-    { id: Date.now() + 2, name: 'Avg Handle Time', formula: '(tTalk_sum + tHeld_sum + tAcw_sum) / tAnswered_count / 1000', chartType: 'bar', size: '1x1', unit: 'seconds' },
-    { id: Date.now() + 3, name: 'Abandon Rate', formula: '(tAbandon_count / nOffered_count) * 100', chartType: 'bar', size: '2x1', unit: 'percent' },
-  ]);
+  const [metricsConfig, setMetricsConfig] = useState(DEFAULT_METRICS);
   const [newMetric, setNewMetric] = useState({ name: '', formula: '', chartType: 'bar', size: '1x1', unit: 'count' });
   const [activeFilters, setActiveFilters] = useState([]);
-  const [filterValues, setFilterValues] = useState({ queues: [], divisions: [], mediaTypes: [], direction: [], wrapUpCode: [], skills: [], users: [], dnis: [], ani: [], disconnectType: [], interactionType: [], usedRouting: [], messageType: [], requestedLanguageId: [], teamId: [], provider: [], purpose: [] });
+  const [filterValues, setFilterValues] = useState(DEFAULT_FILTER_VALUES);
   const [collapsedFilters, setCollapsedFilters] = useState({});
   const [activeMenu, setActiveMenu] = useState(null);
   const [rawData, setRawData] = useState({ results: [] });
@@ -96,6 +102,11 @@ export default function App() {
 
   // Responsive sidebar
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Saved views
+  const [savedViews, setSavedViews] = useState(getSavedViews());
+  const [activeViewId, setActiveViewId] = useState(null);
+  const [defaultViewId, setDefaultViewIdState] = useState(getDefaultViewId());
 
   const [dateStart, setDateStart] = useState(() => {
     const now = new Date();
@@ -117,6 +128,69 @@ export default function App() {
     }
     return BASE_TABS;
   }, [showDevLog]);
+
+  // --- View management ---
+  function getCurrentState() {
+    return {
+      metricsConfig,
+      activeFilters,
+      filterValues,
+      activeTab,
+    };
+  }
+
+  function applyViewState(state) {
+    if (state.metricsConfig) setMetricsConfig(state.metricsConfig);
+    if (state.activeFilters) setActiveFilters(state.activeFilters);
+    if (state.filterValues) setFilterValues({ ...DEFAULT_FILTER_VALUES, ...state.filterValues });
+    if (state.activeTab) setActiveTab(state.activeTab);
+  }
+
+  function handleSaveAsNew(name) {
+    const id = `view_${Date.now()}`;
+    const view = { id, name, state: getCurrentState() };
+    saveView(view);
+    setSavedViews(getSavedViews());
+    setActiveViewId(id);
+  }
+
+  function handleSaveView() {
+    if (!activeViewId) return;
+    const existing = savedViews.find((v) => v.id === activeViewId);
+    if (!existing) return;
+    const updated = { ...existing, state: getCurrentState() };
+    saveView(updated);
+    setSavedViews(getSavedViews());
+  }
+
+  function handleLoadView(id) {
+    const view = savedViews.find((v) => v.id === id);
+    if (!view) return;
+    applyViewState(view.state);
+    setActiveViewId(id);
+  }
+
+  function handleDeleteView(id) {
+    deleteStoredView(id);
+    setSavedViews(getSavedViews());
+    if (activeViewId === id) setActiveViewId(null);
+    if (defaultViewId === id) setDefaultViewIdState(null);
+  }
+
+  function handleRenameView(id, newName) {
+    renameStoredView(id, newName);
+    setSavedViews(getSavedViews());
+  }
+
+  function handleSetDefault(id) {
+    if (id) {
+      setDefaultView(id);
+      setDefaultViewIdState(id);
+    } else {
+      clearDefaultView();
+      setDefaultViewIdState(null);
+    }
+  }
 
   // Subscribe to API log updates
   useEffect(() => {
@@ -151,6 +225,20 @@ export default function App() {
       })
       .catch(() => {});
   }, [authenticated]);
+
+  // Load default view on startup (after options are loaded so filters make sense)
+  useEffect(() => {
+    if (!optionsLoaded) return;
+    const defId = getDefaultViewId();
+    if (defId) {
+      const views = getSavedViews();
+      const defView = views.find((v) => v.id === defId);
+      if (defView) {
+        applyViewState(defView.state);
+        setActiveViewId(defId);
+      }
+    }
+  }, [optionsLoaded]);
 
   // Load filter options once when authenticated
   useEffect(() => {
@@ -305,6 +393,19 @@ export default function App() {
 
         <div className="flex-1" />
 
+        {/* View picker */}
+        <ViewPicker
+          savedViews={savedViews}
+          activeViewId={activeViewId}
+          defaultViewId={defaultViewId}
+          onLoadView={handleLoadView}
+          onSaveView={handleSaveView}
+          onSaveAsNew={handleSaveAsNew}
+          onDeleteView={handleDeleteView}
+          onRenameView={handleRenameView}
+          onSetDefault={handleSetDefault}
+        />
+
         {/* DEV badge — only for dev users */}
         {isDev && (
           <button
@@ -313,7 +414,7 @@ export default function App() {
               setShowDevLog(next);
               if (!next && activeTab === 'log') setActiveTab('dashboard');
             }}
-            className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-colors mr-2 ${
+            className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-colors ml-2 ${
               showDevLog
                 ? 'bg-[#E57200] text-white'
                 : 'bg-slate-200 text-slate-500 hover:bg-slate-300'
