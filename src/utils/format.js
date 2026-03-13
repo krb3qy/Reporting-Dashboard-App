@@ -5,8 +5,10 @@ export function formatValue(value, unit) {
   if (value == null || isNaN(value)) return '—';
 
   switch (unit) {
-    case 'percent':
-      return `${value.toFixed(1)}%`;
+    case 'percent': {
+      const clamped = Math.min(Math.max(value, 0), 100);
+      return `${clamped.toFixed(1)}%`;
+    }
     case 'seconds': {
       const totalSec = Math.round(value);
       const m = Math.floor(totalSec / 60);
