@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  RefreshCw, PlusCircle, MoreVertical, Layout, Table, Calculator, Trash2, LogOut,
-  ScrollText, Filter as FilterIcon, Menu, X,
+  RefreshCw, PlusCircle, MoreVertical, Layout, Table, Calculator, Trash2,
+  ScrollText, Menu, X,
 } from 'lucide-react';
 import { AVAILABLE_RAW_METRICS } from './constants';
 import PieChartTile from './components/PieChartTile';
@@ -10,7 +10,7 @@ import FilterEngine from './components/FilterEngine';
 import FormulaStudio from './components/FormulaStudio';
 import DateRangePicker from './components/DateRangePicker';
 import AnalyticsView from './components/AnalyticsView';
-import { init as gcInit, isAuthenticated, logout } from './services/gcAuth';
+import { init as gcInit } from './services/gcAuth';
 import { queryConversationAggregates, getQueues, getDivisions, getSkills, getWrapUpCodes, getUsers, getLanguages, getTeams, getOutboundCampaigns, getCurrentUser, buildAggregateFilter, getApiLogs, onApiLogUpdate } from './services/gcApi';
 import { formatValue } from './utils/format';
 
@@ -334,15 +334,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Logout */}
-        {authenticated && (
-          <button
-            onClick={logout}
-            className="flex items-center gap-2 px-4 py-2 mr-2 lg:mr-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-[#E57200] transition-colors"
-          >
-            <LogOut size={14} />
-          </button>
-        )}
       </header>
 
       {/* Debug bar — dev users only */}
