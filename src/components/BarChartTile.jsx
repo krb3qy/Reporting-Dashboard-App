@@ -33,9 +33,9 @@ export default function BarChartTile({ data, metricId, metricName, unit, nameLoo
 
   return (
     <div className="flex flex-col w-full h-full relative">
-      <div className="flex-1 w-full flex items-end gap-2 px-4 pt-8 overflow-visible">
+      <div className="flex-1 w-full flex items-end gap-2 px-4 pt-8 overflow-hidden">
         {bars.map((bar, i) => {
-          const height = maxVal > 0 ? (bar._val / maxVal) * 90 : 5;
+          const height = maxVal > 0 ? (bar._val / maxVal) * 80 : 5;
           return (
             <div
               key={i}

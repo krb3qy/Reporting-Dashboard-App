@@ -122,9 +122,9 @@ export const API_QUERY_METRICS = [
   'tAgentResponseTime', 'tUserResponseTime',
 ];
 
-// Filter definitions — maps UI filter IDs to GC Analytics API dimensions
+// Core 12 filter definitions — maps UI filter IDs to GC Analytics API dimensions
 // "searchable" filters get a typeahead search box; others get chip toggles
-export const FILTER_TYPES = [
+const FILTER_TYPES_CORE = [
   { id: 'queues',         label: 'Queues',           dimension: 'queueId',                 searchable: true,  iconName: 'Headphones' },
   { id: 'divisions',      label: 'Divisions',        dimension: 'divisionId',              searchable: true,  iconName: 'Building2' },
   { id: 'mediaTypes',     label: 'Media Type',       dimension: 'mediaType',               searchable: false, iconName: 'Radio' },
@@ -138,6 +138,31 @@ export const FILTER_TYPES = [
   { id: 'interactionType',label: 'Interaction Type', dimension: 'interactionType',         searchable: false, iconName: 'MessageSquare' },
   { id: 'usedRouting',    label: 'Routing Method',   dimension: 'usedRouting',             searchable: false, iconName: 'GitBranch' },
 ];
+
+// 5 new common filters for sidebar
+const FILTER_TYPES_NEW = [
+  { id: 'messageType',          label: 'Message Type', dimension: 'messageType',          searchable: false, iconName: 'MessageSquare' },
+  { id: 'requestedLanguageId',  label: 'Language',     dimension: 'requestedLanguageId',  searchable: true,  iconName: 'Globe' },
+  { id: 'teamId',               label: 'Teams',        dimension: 'teamId',               searchable: true,  iconName: 'Users2' },
+  { id: 'provider',             label: 'Provider',     dimension: 'provider',             searchable: false, iconName: 'Cloud' },
+  { id: 'purpose',              label: 'Purpose',      dimension: 'purpose',              searchable: false, iconName: 'Target' },
+];
+
+// 3 analytics-only filters
+const FILTER_TYPES_ANALYTICS_ONLY = [
+  { id: 'flowOutType',          label: 'Flow Out Type',       dimension: 'flowOutType',          searchable: false, iconName: 'GitBranch' },
+  { id: 'originatingDirection', label: 'Orig. Direction',     dimension: 'originatingDirection', searchable: false, iconName: 'ArrowLeftRight' },
+  { id: 'outboundCampaignId',   label: 'Outbound Campaign',  dimension: 'outboundCampaignId',   searchable: true,  iconName: 'Megaphone' },
+];
+
+// Sidebar: 12 core + 5 new = 17
+export const FILTER_TYPES_SIDEBAR = [...FILTER_TYPES_CORE, ...FILTER_TYPES_NEW];
+
+// Analytics: 17 + 3 analytics-only = 20
+export const FILTER_TYPES_ANALYTICS = [...FILTER_TYPES_SIDEBAR, ...FILTER_TYPES_ANALYTICS_ONLY];
+
+// Keep FILTER_TYPES as alias for backwards compat in buildAggregateFilter
+export const FILTER_TYPES = FILTER_TYPES_ANALYTICS;
 
 // Analytics table column definitions — maps raw GC metrics to readable columns
 // stat: 'count' uses metric.stats.count, 'sum' uses metric.stats.sum
@@ -196,4 +221,9 @@ export const STATIC_FILTER_OPTIONS = {
   disconnectType: ['client', 'system', 'transfer', 'peer', 'endpoint', 'timeout', 'other'],
   interactionType: ['call', 'callback', 'chat', 'cobrowse', 'email', 'message', 'screenshare', 'video'],
   usedRouting: ['bullseye', 'conditional', 'direct', 'last', 'manual', 'predictive', 'preferred', 'standard', 'vip'],
+  messageType: ['sms', 'facebook', 'twitter', 'line', 'whatsapp', 'telegram', 'kakao', 'webmessaging', 'open', 'instagram'],
+  provider: ['Edge', 'PureCloud', 'PureCloud Voice', 'PureCloud Email', 'PureCloud Webchat'],
+  purpose: ['customer', 'user', 'ivr', 'acd', 'voicemail', 'outbound', 'group', 'api'],
+  flowOutType: ['DISCONNECT', 'TRANSFER', 'TRANSFER_FLOW', 'TRANSFER_GROUP', 'TRANSFER_USER', 'TRANSFER_NUMBER', 'TRANSFER_SECURE_FLOW', 'TRANSFER_VOICEMAIL'],
+  originatingDirection: ['inbound', 'outbound'],
 };

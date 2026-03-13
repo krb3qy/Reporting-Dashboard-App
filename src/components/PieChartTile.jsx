@@ -21,11 +21,17 @@ export default function PieChartTile({ data, metricId, metricName, unit, nameLoo
     }
 
     const top = withVal.slice(0, MAX_SLICES - 1);
-    const otherVal = withVal.slice(MAX_SLICES - 1).reduce((acc, r) => acc + r._val, 0);
-    const otherCount = withVal.length - (MAX_SLICES - 1);
+    const otherItems = withVal.slice(MAX_SLICES - 1);
+    const otherCount = otherItems.length;
+    let otherVal;
+    if (unit === 'percent' || unit === 'seconds') {
+      otherVal = otherItems.reduce((acc, r) => acc + r._val, 0) / otherCount;
+    } else {
+      otherVal = otherItems.reduce((acc, r) => acc + r._val, 0);
+    }
     top.push({ _val: otherVal, _isOther: true, _otherCount: otherCount, queueId: `other_${otherCount}`, kpis: [{ id: metricId, value: otherVal }] });
     return { slices: top, totalVal: total };
-  }, [data, metricId]);
+  }, [data, metricId, unit]);
 
   if (data.length === 0) {
     return (

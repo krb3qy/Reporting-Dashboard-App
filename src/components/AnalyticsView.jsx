@@ -3,7 +3,7 @@ import {
   RefreshCw, Columns3, Download, ChevronDown, ChevronUp, Search, X,
   Filter, Check, ChevronRight,
 } from 'lucide-react';
-import { ANALYTICS_COLUMNS, FILTER_TYPES, STATIC_FILTER_OPTIONS, API_QUERY_METRICS } from '../constants';
+import { ANALYTICS_COLUMNS, FILTER_TYPES_ANALYTICS, STATIC_FILTER_OPTIONS, API_QUERY_METRICS } from '../constants';
 import { queryConversationAggregates, buildAggregateFilter } from '../services/gcApi';
 import { formatValue } from '../utils/format';
 import DateRangePicker from './DateRangePicker';
@@ -39,7 +39,7 @@ export default function AnalyticsView({ filterOptions, nameLookup, authenticated
   const [activeFilters, setActiveFilters] = useState([]);
   const [filterValues, setFilterValues] = useState(() => {
     const init = {};
-    FILTER_TYPES.forEach((ft) => { init[ft.id] = []; });
+    FILTER_TYPES_ANALYTICS.forEach((ft) => { init[ft.id] = []; });
     return init;
   });
   const [openFilterDropdown, setOpenFilterDropdown] = useState(null);
@@ -200,7 +200,7 @@ export default function AnalyticsView({ filterOptions, nameLookup, authenticated
   return (
     <div className="flex flex-col h-full">
       {/* Toolbar */}
-      <div className="bg-white border-b border-slate-200 px-8 py-4 flex items-center gap-4 flex-wrap shrink-0">
+      <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 lg:py-4 flex items-center gap-2 lg:gap-4 flex-wrap shrink-0">
         {/* Date picker */}
         <DateRangePicker startDate={dateStart} endDate={dateEnd} onChange={(s, e) => { setDateStart(s); setDateEnd(e); }} />
 
@@ -223,7 +223,7 @@ export default function AnalyticsView({ filterOptions, nameLookup, authenticated
             </button>
             {openFilterDropdown === '_add' && (
               <div className="absolute left-0 top-full mt-1 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 py-2 max-h-80 overflow-y-auto">
-                {FILTER_TYPES.map((ft) => {
+                {FILTER_TYPES_ANALYTICS.map((ft) => {
                   const isActive = activeFilters.includes(ft.id);
                   const count = (filterValues[ft.id] || []).length;
                   return (
@@ -247,7 +247,7 @@ export default function AnalyticsView({ filterOptions, nameLookup, authenticated
 
           {/* Active filter chips with dropdowns */}
           {activeFilters.map((filterId) => {
-            const ft = FILTER_TYPES.find((f) => f.id === filterId);
+            const ft = FILTER_TYPES_ANALYTICS.find((f) => f.id === filterId);
             if (!ft) return null;
             const selected = filterValues[filterId] || [];
             const isOpen = openFilterDropdown === filterId;

@@ -3,12 +3,14 @@ import {
   X, ChevronDown, ChevronRight, PlusCircle, Filter, Search,
   Headphones, Building2, Radio, ArrowLeftRight, Tag, Zap, User,
   Phone, PhoneIncoming, PhoneOff, MessageSquare, GitBranch,
+  Globe, Users2, Cloud, Target, Megaphone,
 } from 'lucide-react';
-import { FILTER_TYPES, STATIC_FILTER_OPTIONS } from '../constants';
+import { FILTER_TYPES_SIDEBAR, STATIC_FILTER_OPTIONS } from '../constants';
 
 const ICON_MAP = {
   Headphones, Building2, Radio, ArrowLeftRight, Tag, Zap, User,
   Phone, PhoneIncoming, PhoneOff, MessageSquare, GitBranch,
+  Globe, Users2, Cloud, Target, Megaphone,
 };
 
 /**
@@ -53,7 +55,7 @@ export default function FilterEngine({
       </h2>
       <div className="space-y-3">
         {activeFilters.map((filterId) => {
-          const typeInfo = FILTER_TYPES.find((f) => f.id === filterId);
+          const typeInfo = FILTER_TYPES_SIDEBAR.find((f) => f.id === filterId);
           if (!typeInfo) return null;
 
           const rawOptions = typeInfo.searchable
@@ -86,11 +88,11 @@ export default function FilterEngine({
       </div>
 
       {/* Add Filter */}
-      {FILTER_TYPES.filter((ft) => !activeFilters.includes(ft.id)).length > 0 && (
+      {FILTER_TYPES_SIDEBAR.filter((ft) => !activeFilters.includes(ft.id)).length > 0 && (
         <div className="pt-4 mt-5 border-t border-white/5">
           <h2 className="text-[10px] font-black uppercase tracking-[0.2em] text-[#E57200] mb-3">Add Filter</h2>
           <div className="flex flex-wrap gap-1.5">
-            {FILTER_TYPES.filter((ft) => !activeFilters.includes(ft.id)).map((ft) => {
+            {FILTER_TYPES_SIDEBAR.filter((ft) => !activeFilters.includes(ft.id)).map((ft) => {
               const Ic = ICON_MAP[ft.iconName];
               return (
                 <button
