@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   RefreshCw, PlusCircle, MoreVertical, Layout, Table, Calculator, Trash2, LogOut,
 } from 'lucide-react';
-import { AVAILABLE_RAW_METRICS, STATIC_FILTER_OPTIONS } from './constants';
+import { AVAILABLE_RAW_METRICS } from './constants';
 import PieChartTile from './components/PieChartTile';
 import BarChartTile from './components/BarChartTile';
 import SidebarBtn from './components/SidebarBtn';
@@ -31,11 +31,7 @@ const MOCK_FILTER_OPTIONS = {
 function generateMockData(queueOpts, divisionOpts) {
   return {
     results: queueOpts.map((q) => ({
-      group: {
-        queueId: q.id,
-        divisionId: divisionOpts[Math.floor(Math.random() * divisionOpts.length)].id,
-        mediaType: Math.random() > 0.8 ? 'callback' : 'voice',
-      },
+      group: { queueId: q.id },
       data: [
         {
           metrics: AVAILABLE_RAW_METRICS.map((m) => ({
@@ -48,15 +44,12 @@ function generateMockData(queueOpts, divisionOpts) {
   };
 }
 
-// Build a name lookup map from all {id, name} filter options
 function buildNameLookup(filterOptions) {
   const map = {};
   for (const key of Object.keys(filterOptions)) {
     const opts = filterOptions[key];
     if (Array.isArray(opts) && opts.length > 0 && typeof opts[0] === 'object' && opts[0].id) {
-      for (const o of opts) {
-        map[o.id] = o.name;
-      }
+      for (const o of opts) map[o.id] = o.name;
     }
   }
   return map;
@@ -79,16 +72,18 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [authenticated, setAuthenticated] = useState(false);
+  const [optionsLoaded, setOptionsLoaded] = useState(false);
 
-  // Date range — default to today
   const [dateStart, setDateStart] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   });
   const [dateEnd, setDateEnd] = useState(() => new Date());
 
-  // Name lookup map for resolving UUIDs to display names
   const nameLookup = useMemo(() => buildNameLookup(filterOptions), [filterOptions]);
+
+  // Ref to track if initial load is done (prevent double-query)
+  const initialLoadDone = useRef(false);
 
   // Auto-authenticate on mount
   useEffect(() => {
@@ -100,18 +95,29 @@ export default function App() {
     }
   }, []);
 
-  // Load live data when authenticated
+  // Load filter options once when authenticated
   useEffect(() => {
-    if (authenticated) {
-      loadLiveData();
-    }
+    if (!authenticated || optionsLoaded) return;
+    loadFilterOptions();
   }, [authenticated]);
 
-  async function loadLiveData() {
+  // Query data when authenticated (initial + when filters/dates change)
+  useEffect(() => {
+    if (!authenticated) return;
+    // Skip the very first render — loadFilterOptions triggers the initial query
+    if (!initialLoadDone.current) return;
+
+    // Debounce: wait 600ms after last filter/date change before re-querying
+    const timer = setTimeout(() => {
+      queryData();
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [filterValues, dateStart, dateEnd]);
+
+  async function loadFilterOptions() {
     setLoading(true);
     setError(null);
     try {
-      // Fetch all filter option sets in parallel
       const [queuesRes, divisionsRes, skillsRes, wrapUpRes, usersRes] = await Promise.all([
         getQueues(),
         getDivisions(),
@@ -129,7 +135,23 @@ export default function App() {
         users: (usersRes.entities || []).map((u) => ({ id: u.id, name: u.name })).sort((a, b) => a.name.localeCompare(b.name)),
       }));
 
-      // Query aggregates with current date range
+      setOptionsLoaded(true);
+
+      // Run initial data query
+      await queryData();
+      initialLoadDone.current = true;
+    } catch (err) {
+      setError(err.message);
+      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues, MOCK_FILTER_OPTIONS.divisions));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function queryData() {
+    setLoading(true);
+    setError(null);
+    try {
       const interval = `${dateStart.toISOString()}/${dateEnd.toISOString()}`;
       const filter = buildAggregateFilter(filterValues);
 
@@ -142,7 +164,6 @@ export default function App() {
       setRawData(data);
     } catch (err) {
       setError(err.message);
-      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues, MOCK_FILTER_OPTIONS.divisions));
     } finally {
       setLoading(false);
     }
@@ -153,47 +174,40 @@ export default function App() {
     setDateEnd(end);
   }
 
+  // Process data — NO client-side dimension filtering.
+  // All filtering is done server-side via API predicates.
+  // This just computes KPI formulas from the raw metric stats.
   const processedData = useMemo(() => {
-    return (rawData.results || [])
-      .filter((res) => {
-        // All filter comparisons now use IDs
-        const qMatch = !filterValues.queues?.length || filterValues.queues.includes(res.group.queueId);
-        const dMatch = !filterValues.divisions?.length || filterValues.divisions.includes(res.group.divisionId);
-        const mMatch = !filterValues.mediaTypes?.length || filterValues.mediaTypes.includes(res.group.mediaType);
-        const dirMatch = !filterValues.direction?.length || filterValues.direction.includes(res.group.direction);
-        return qMatch && dMatch && mMatch && dirMatch;
-      })
-      .map((row) => {
-        const statsDict = {};
-        (row.data?.[0]?.metrics || []).forEach((m) => {
-          statsDict[`${m.metric}_count`] = m.stats.count;
-          statsDict[`${m.metric}_sum`] = m.stats.sum;
-        });
-        const kpis = metricsConfig.map((m) => {
-          let formula = m.formula;
-          Object.keys(statsDict).forEach((key) => (formula = formula.replace(new RegExp(`\\b${key}\\b`, 'g'), statsDict[key])));
-          try {
-            return { ...m, value: new Function(`return ${formula}`)() || 0 };
-          } catch {
-            return { ...m, value: 0 };
-          }
-        });
-        return { ...row.group, kpis, stats: statsDict };
+    return (rawData.results || []).map((row) => {
+      const statsDict = {};
+      (row.data?.[0]?.metrics || []).forEach((m) => {
+        statsDict[`${m.metric}_count`] = m.stats.count;
+        statsDict[`${m.metric}_sum`] = m.stats.sum;
       });
-  }, [rawData, metricsConfig, filterValues]);
+      const kpis = metricsConfig.map((m) => {
+        let formula = m.formula;
+        Object.keys(statsDict).forEach((key) => (formula = formula.replace(new RegExp(`\\b${key}\\b`, 'g'), statsDict[key])));
+        try {
+          return { ...m, value: new Function(`return ${formula}`)() || 0 };
+        } catch {
+          return { ...m, value: 0 };
+        }
+      });
+      return { ...row.group, kpis, stats: statsDict };
+    });
+  }, [rawData, metricsConfig]);
 
   const deleteMetric = (id) => setMetricsConfig(metricsConfig.filter((m) => m.id !== id));
   const toggleSize = (id) => setMetricsConfig(metricsConfig.map((m) => (m.id === id ? { ...m, size: m.size === '1x1' ? '2x1' : '1x1' } : m)));
 
   function handleRefresh() {
     if (authenticated) {
-      loadLiveData();
+      queryData();
     } else {
       setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues, MOCK_FILTER_OPTIONS.divisions));
     }
   }
 
-  // Resolve a UUID to a display name, falling back to the raw value
   function resolveName(id) {
     return nameLookup[id] || id;
   }
@@ -244,7 +258,6 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Logout */}
         {authenticated && (
           <div className="p-5 border-t border-white/5">
             <button
@@ -343,7 +356,6 @@ export default function App() {
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       <th className="p-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Queue</th>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Division</th>
                       {metricsConfig.map((m) => (
                         <th key={m.id} className="p-8 text-[10px] font-black uppercase tracking-widest text-[#E57200]">{m.name}</th>
                       ))}
@@ -353,7 +365,6 @@ export default function App() {
                     {processedData.map((row, i) => (
                       <tr key={i} className="hover:bg-slate-50 transition-colors">
                         <td className="p-8 text-xs font-black text-[#232D4B]">{resolveName(row.queueId)}</td>
-                        <td className="p-8 text-xs font-bold text-[#4D4D4F]">{resolveName(row.divisionId)}</td>
                         {row.kpis.map((k) => (
                           <td key={k.id} className="p-8 text-xs font-black text-slate-700">{k.value.toFixed(1)}</td>
                         ))}
