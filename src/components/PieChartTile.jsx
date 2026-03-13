@@ -35,11 +35,11 @@ export default function PieChartTile({ data, metricId }) {
       </div>
       <div className={`mt-6 h-10 flex items-center justify-center transition-all duration-300 ${hoveredIdx !== null ? 'opacity-100' : 'opacity-0'}`}>
         {hoveredIdx !== null && (
-          <div className="flex items-center gap-4 bg-slate-900 text-white px-5 py-2.5 rounded-full shadow-xl border border-white/10">
+          <div className="flex items-center gap-4 bg-[#232D4B] text-white px-5 py-2.5 rounded-full shadow-xl border border-white/10">
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[hoveredIdx % CHART_COLORS.length] }} />
             <span className="text-[10px] font-black uppercase tracking-widest">{data[hoveredIdx].queueId}</span>
             <span className="w-px h-3 bg-white/20" />
-            <span className="text-[10px] font-black text-orange-400">{(data[hoveredIdx].kpis.find((k) => k.id === metricId)?.value || 0).toFixed(1)}</span>
+            <span className="text-[10px] font-black text-[#E57200]">{(data[hoveredIdx].kpis.find((k) => k.id === metricId)?.value || 0).toFixed(1)}</span>
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { getToken } from './gcAuth';
+import { API_QUERY_METRICS, FILTER_TYPES } from '../constants';
 
 const API_BASE = 'https://api.usw2.pure.cloud';
 
@@ -23,8 +24,24 @@ async function gcFetch(path, options = {}) {
 }
 
 /**
- * Query conversation aggregates.
- * @param {Object} params - { interval, granularity, groupBy, filter }
+ * Paginate through a GC list endpoint, returning all entities.
+ */
+async function gcFetchAll(basePath, pageSize = 100) {
+  let page = 1;
+  let allEntities = [];
+  while (true) {
+    const sep = basePath.includes('?') ? '&' : '?';
+    const data = await gcFetch(`${basePath}${sep}pageSize=${pageSize}&pageNumber=${page}`);
+    const entities = data.entities || [];
+    allEntities = allEntities.concat(entities);
+    if (entities.length < pageSize || page >= (data.pageCount || 1)) break;
+    page++;
+  }
+  return allEntities;
+}
+
+/**
+ * Query conversation aggregates with the full metric set.
  */
 export async function queryConversationAggregates({ interval, granularity, groupBy, filter }) {
   const body = {
@@ -32,10 +49,7 @@ export async function queryConversationAggregates({ interval, granularity, group
     granularity,
     groupBy,
     filter,
-    metrics: [
-      'nOffered', 'tAnswered', 'tTalk', 'tHold', 'tAcw',
-      'nAbandoned', 'tWait', 'tHandle', 'nTransferred', 'tAlert',
-    ],
+    metrics: API_QUERY_METRICS,
   };
 
   return gcFetch('/api/v2/analytics/conversations/aggregates/query', {
@@ -45,47 +59,61 @@ export async function queryConversationAggregates({ interval, granularity, group
 }
 
 /**
- * Get list of queues (for filter options).
+ * Get all queues (paginated).
  */
-export async function getQueues(pageSize = 100) {
-  return gcFetch(`/api/v2/routing/queues?pageSize=${pageSize}`);
+export async function getQueues() {
+  const entities = await gcFetchAll('/api/v2/routing/queues');
+  return { entities };
 }
 
 /**
- * Get list of divisions (for filter options).
+ * Get all divisions (paginated).
  */
-export async function getDivisions(pageSize = 100) {
-  return gcFetch(`/api/v2/authorization/divisions?pageSize=${pageSize}`);
+export async function getDivisions() {
+  const entities = await gcFetchAll('/api/v2/authorization/divisions');
+  return { entities };
+}
+
+/**
+ * Get all routing skills (paginated).
+ */
+export async function getSkills() {
+  const entities = await gcFetchAll('/api/v2/routing/skills');
+  return { entities };
+}
+
+/**
+ * Get all wrap-up codes (paginated).
+ */
+export async function getWrapUpCodes() {
+  const entities = await gcFetchAll('/api/v2/routing/wrapupcodes');
+  return { entities };
+}
+
+/**
+ * Get all users (paginated).
+ */
+export async function getUsers() {
+  const entities = await gcFetchAll('/api/v2/users');
+  return { entities };
 }
 
 /**
  * Build a filter object for the aggregates query from the UI filter state.
+ * Uses the dimension mapping from FILTER_TYPES.
  */
 export function buildAggregateFilter(filterValues) {
   const predicates = [];
 
-  if (filterValues.queues?.length > 0) {
-    predicates.push({
-      dimension: 'queueId',
-      operator: 'matches',
-      value: filterValues.queues.join(','),
-    });
-  }
-
-  if (filterValues.divisions?.length > 0) {
-    predicates.push({
-      dimension: 'divisionId',
-      operator: 'matches',
-      value: filterValues.divisions.join(','),
-    });
-  }
-
-  if (filterValues.mediaTypes?.length > 0) {
-    predicates.push({
-      dimension: 'mediaType',
-      operator: 'matches',
-      value: filterValues.mediaTypes.join(','),
-    });
+  for (const ft of FILTER_TYPES) {
+    const values = filterValues[ft.id];
+    if (values && values.length > 0) {
+      predicates.push({
+        dimension: ft.dimension,
+        operator: 'matches',
+        value: values.join(','),
+      });
+    }
   }
 
   if (predicates.length === 0) return undefined;

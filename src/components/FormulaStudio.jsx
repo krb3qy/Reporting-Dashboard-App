@@ -15,7 +15,7 @@ export default function FormulaStudio({ metricsConfig, setMetricsConfig, newMetr
     <div className="max-w-4xl mx-auto space-y-8 pb-20">
       <section className="bg-white p-12 rounded-[2.5rem] shadow-sm border border-slate-200">
         <h3 className="font-black text-sm uppercase tracking-widest mb-10 text-[#232D4B] flex items-center gap-3">
-          <Calculator className="text-orange-500" /> Formula Studio
+          <Calculator className="text-[#E57200]" /> Formula Studio
         </h3>
         <div className="grid grid-cols-2 gap-8 mb-8">
           <div className="space-y-2">
@@ -23,7 +23,7 @@ export default function FormulaStudio({ metricsConfig, setMetricsConfig, newMetr
             <input
               value={newMetric.name}
               onChange={(e) => setNewMetric({ ...newMetric, name: e.target.value })}
-              className="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold focus:ring-2 focus:ring-orange-500 outline-none"
+              className="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold focus:ring-2 focus:ring-[#E57200] outline-none"
               placeholder="e.g. Total Handle Efficiency"
             />
           </div>
@@ -44,15 +44,15 @@ export default function FormulaStudio({ metricsConfig, setMetricsConfig, newMetr
           <textarea
             value={newMetric.formula}
             onChange={(e) => setNewMetric({ ...newMetric, formula: e.target.value })}
-            className="w-full bg-slate-900 text-orange-400 p-6 rounded-2xl font-mono text-sm min-h-[120px] focus:ring-2 focus:ring-orange-500 outline-none shadow-inner"
-            placeholder="(tTalk_sum + tHold_sum) / tAnswered_count"
+            className="w-full bg-[#232D4B] text-[#E57200] p-6 rounded-2xl font-mono text-sm min-h-[120px] focus:ring-2 focus:ring-[#E57200] outline-none shadow-inner"
+            placeholder="(tTalk_sum + tHeld_sum) / tAnswered_count"
           />
           <div className="flex flex-wrap gap-2 pt-4">
             {AVAILABLE_RAW_METRICS.map((m) => (
               <button
                 key={m}
                 onClick={() => setNewMetric({ ...newMetric, formula: newMetric.formula + ` ${m}_count ` })}
-                className="text-[9px] font-black bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg hover:bg-slate-200 transition-colors uppercase"
+                className="text-[9px] font-black bg-slate-100 text-slate-500 px-3 py-1.5 rounded-lg hover:bg-[#E57200]/10 hover:text-[#E57200] transition-colors uppercase"
               >
                 +{m}
               </button>
@@ -61,7 +61,7 @@ export default function FormulaStudio({ metricsConfig, setMetricsConfig, newMetr
         </div>
         <button
           onClick={addMetric}
-          className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl shadow-xl shadow-orange-600/20 hover:bg-orange-700 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
+          className="w-full bg-[#E57200] text-white font-black py-5 rounded-2xl shadow-xl shadow-[#E57200]/20 hover:brightness-110 transition-all flex items-center justify-center gap-2 uppercase tracking-widest"
         >
           <PlusCircle size={20} /> Deploy New Metric
         </button>
