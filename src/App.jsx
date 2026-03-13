@@ -198,24 +198,24 @@ export default function App() {
     return nameLookup[id] || id;
   }
 
-  // Iframe security check
-  const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  let isInIframe = true;
-  try {
-    isInIframe = window.top !== window.self;
-  } catch {
-    isInIframe = true;
-  }
-  if (!isDev && !isInIframe) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-[#232D4B] text-white">
-        <div className="text-center p-12">
-          <h1 className="text-2xl font-black mb-4">Access Denied</h1>
-          <p className="text-slate-400">This application must be accessed through Genesys Cloud.</p>
-        </div>
-      </div>
-    );
-  }
+  // Iframe security check — commented out for testing
+  // const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  // let isInIframe = true;
+  // try {
+  //   isInIframe = window.top !== window.self;
+  // } catch {
+  //   isInIframe = true;
+  // }
+  // if (!isDev && !isInIframe) {
+  //   return (
+  //     <div className="flex items-center justify-center h-screen bg-[#232D4B] text-white">
+  //       <div className="text-center p-12">
+  //         <h1 className="text-2xl font-black mb-4">Access Denied</h1>
+  //         <p className="text-slate-400">This application must be accessed through Genesys Cloud.</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   return (
     <div className="flex h-screen bg-[#F4F7F9] text-slate-900 overflow-hidden font-sans">
