@@ -10,8 +10,7 @@ export default function PieChartTile({ data, metricId, metricName, unit, nameLoo
   // Sort by value descending, take top N, bucket the rest as "Other"
   const { slices, sliceTotal, avg } = useMemo(() => {
     const withVal = data.map((row) => {
-      let val = row.kpis.find((k) => k.id === metricId)?.value || 0;
-      if (unit === 'percent') val = Math.min(Math.max(val, 0), 100);
+      const val = row.kpis.find((k) => k.id === metricId)?.value || 0;
       return { ...row, _val: val };
     }).sort((a, b) => b._val - a._val);
 
