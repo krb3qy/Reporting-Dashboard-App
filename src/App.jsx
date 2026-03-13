@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   RefreshCw, PlusCircle, MoreVertical, Layout, Table, Calculator, Trash2, LogOut,
 } from 'lucide-react';
@@ -8,21 +8,32 @@ import BarChartTile from './components/BarChartTile';
 import SidebarBtn from './components/SidebarBtn';
 import FilterEngine from './components/FilterEngine';
 import FormulaStudio from './components/FormulaStudio';
+import DateRangePicker from './components/DateRangePicker';
 import { init as gcInit, isAuthenticated, logout } from './services/gcAuth';
 import { queryConversationAggregates, getQueues, getDivisions, getSkills, getWrapUpCodes, getUsers, buildAggregateFilter } from './services/gcApi';
 
 // Mock filter options (used when not authenticated)
 const MOCK_FILTER_OPTIONS = {
-  queues: ['General_Surg', 'Pediatrics', 'Cardiology', 'ER_Main', 'Billing_Dept'],
-  divisions: ['Main Campus', 'North Clinic', 'Childrens'],
+  queues: [
+    { id: 'gen_surg', name: 'General_Surg' },
+    { id: 'peds', name: 'Pediatrics' },
+    { id: 'cardio', name: 'Cardiology' },
+    { id: 'er', name: 'ER_Main' },
+    { id: 'billing', name: 'Billing_Dept' },
+  ],
+  divisions: [
+    { id: 'main', name: 'Main Campus' },
+    { id: 'north', name: 'North Clinic' },
+    { id: 'child', name: 'Childrens' },
+  ],
 };
 
-function generateMockData(queues, divisions) {
+function generateMockData(queueOpts, divisionOpts) {
   return {
-    results: queues.map((q) => ({
+    results: queueOpts.map((q) => ({
       group: {
-        queueId: q,
-        divisionId: divisions[Math.floor(Math.random() * divisions.length)],
+        queueId: q.id,
+        divisionId: divisionOpts[Math.floor(Math.random() * divisionOpts.length)].id,
         mediaType: Math.random() > 0.8 ? 'callback' : 'voice',
       },
       data: [
@@ -35,6 +46,20 @@ function generateMockData(queues, divisions) {
       ],
     })),
   };
+}
+
+// Build a name lookup map from all {id, name} filter options
+function buildNameLookup(filterOptions) {
+  const map = {};
+  for (const key of Object.keys(filterOptions)) {
+    const opts = filterOptions[key];
+    if (Array.isArray(opts) && opts.length > 0 && typeof opts[0] === 'object' && opts[0].id) {
+      for (const o of opts) {
+        map[o.id] = o.name;
+      }
+    }
+  }
+  return map;
 }
 
 export default function App() {
@@ -54,6 +79,16 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [authenticated, setAuthenticated] = useState(false);
+
+  // Date range — default to today
+  const [dateStart, setDateStart] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  });
+  const [dateEnd, setDateEnd] = useState(() => new Date());
+
+  // Name lookup map for resolving UUIDs to display names
+  const nameLookup = useMemo(() => buildNameLookup(filterOptions), [filterOptions]);
 
   // Auto-authenticate on mount
   useEffect(() => {
@@ -87,17 +122,15 @@ export default function App() {
 
       setFilterOptions((prev) => ({
         ...prev,
-        queues: (queuesRes.entities || []).map((q) => q.name).sort(),
-        divisions: (divisionsRes.entities || []).map((d) => d.name).sort(),
-        skills: (skillsRes.entities || []).map((s) => s.name).sort(),
-        wrapUpCode: (wrapUpRes.entities || []).map((w) => w.name).sort(),
-        users: (usersRes.entities || []).map((u) => u.name).sort(),
+        queues: (queuesRes.entities || []).map((q) => ({ id: q.id, name: q.name })).sort((a, b) => a.name.localeCompare(b.name)),
+        divisions: (divisionsRes.entities || []).map((d) => ({ id: d.id, name: d.name })).sort((a, b) => a.name.localeCompare(b.name)),
+        skills: (skillsRes.entities || []).map((s) => ({ id: s.id, name: s.name })).sort((a, b) => a.name.localeCompare(b.name)),
+        wrapUpCode: (wrapUpRes.entities || []).map((w) => ({ id: w.id, name: w.name })).sort((a, b) => a.name.localeCompare(b.name)),
+        users: (usersRes.entities || []).map((u) => ({ id: u.id, name: u.name })).sort((a, b) => a.name.localeCompare(b.name)),
       }));
 
-      // Query aggregates
-      const now = new Date();
-      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const interval = `${dayStart.toISOString()}/${now.toISOString()}`;
+      // Query aggregates with current date range
+      const interval = `${dateStart.toISOString()}/${dateEnd.toISOString()}`;
       const filter = buildAggregateFilter(filterValues);
 
       const data = await queryConversationAggregates({
@@ -115,13 +148,20 @@ export default function App() {
     }
   }
 
+  function handleDateChange(start, end) {
+    setDateStart(start);
+    setDateEnd(end);
+  }
+
   const processedData = useMemo(() => {
     return (rawData.results || [])
       .filter((res) => {
+        // All filter comparisons now use IDs
         const qMatch = !filterValues.queues?.length || filterValues.queues.includes(res.group.queueId);
         const dMatch = !filterValues.divisions?.length || filterValues.divisions.includes(res.group.divisionId);
         const mMatch = !filterValues.mediaTypes?.length || filterValues.mediaTypes.includes(res.group.mediaType);
-        return qMatch && dMatch && mMatch;
+        const dirMatch = !filterValues.direction?.length || filterValues.direction.includes(res.group.direction);
+        return qMatch && dMatch && mMatch && dirMatch;
       })
       .map((row) => {
         const statsDict = {};
@@ -151,6 +191,11 @@ export default function App() {
     } else {
       setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues, MOCK_FILTER_OPTIONS.divisions));
     }
+  }
+
+  // Resolve a UUID to a display name, falling back to the raw value
+  function resolveName(id) {
+    return nameLookup[id] || id;
   }
 
   // Iframe security check
@@ -189,6 +234,7 @@ export default function App() {
             filterOptions={filterOptions}
             collapsedFilters={collapsedFilters}
             setCollapsedFilters={setCollapsedFilters}
+            nameLookup={nameLookup}
           />
 
           <nav className="space-y-2 pt-5 border-t border-white/5">
@@ -218,7 +264,8 @@ export default function App() {
             <span className="text-[10px] font-black text-[#4D4D4F] uppercase tracking-widest">Command Center</span>
             <h1 className="text-lg font-black text-[#232D4B]">OPERATIONAL DASHBOARD</h1>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+            <DateRangePicker startDate={dateStart} endDate={dateEnd} onChange={handleDateChange} />
             <button onClick={handleRefresh} className="p-2 text-[#4D4D4F] hover:text-[#E57200] transition-colors">
               <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
             </button>
@@ -263,9 +310,9 @@ export default function App() {
                   </div>
                   <div className="flex-1 overflow-visible">
                     {m.chartType === 'pie' ? (
-                      <PieChartTile data={processedData} metricId={m.id} />
+                      <PieChartTile data={processedData} metricId={m.id} nameLookup={nameLookup} />
                     ) : (
-                      <BarChartTile data={processedData} metricId={m.id} />
+                      <BarChartTile data={processedData} metricId={m.id} nameLookup={nameLookup} />
                     )}
                   </div>
                 </div>
@@ -295,7 +342,7 @@ export default function App() {
                 <table className="w-full text-left">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      <th className="p-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Queue Entity</th>
+                      <th className="p-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Queue</th>
                       <th className="p-8 text-[10px] font-black uppercase tracking-widest text-slate-400">Division</th>
                       {metricsConfig.map((m) => (
                         <th key={m.id} className="p-8 text-[10px] font-black uppercase tracking-widest text-[#E57200]">{m.name}</th>
@@ -305,8 +352,8 @@ export default function App() {
                   <tbody className="divide-y divide-slate-100">
                     {processedData.map((row, i) => (
                       <tr key={i} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-8 text-xs font-black text-[#232D4B] uppercase">{row.queueId}</td>
-                        <td className="p-8 text-xs font-bold text-[#4D4D4F]">{row.divisionId}</td>
+                        <td className="p-8 text-xs font-black text-[#232D4B]">{resolveName(row.queueId)}</td>
+                        <td className="p-8 text-xs font-bold text-[#4D4D4F]">{resolveName(row.divisionId)}</td>
                         {row.kpis.map((k) => (
                           <td key={k.id} className="p-8 text-xs font-black text-slate-700">{k.value.toFixed(1)}</td>
                         ))}

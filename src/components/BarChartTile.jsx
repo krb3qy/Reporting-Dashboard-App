@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { CHART_COLORS } from '../constants';
 
-export default function BarChartTile({ data, metricId }) {
+export default function BarChartTile({ data, metricId, nameLookup = {} }) {
   const [hoveredIdx, setHoveredIdx] = useState(null);
 
   return (
@@ -32,7 +32,7 @@ export default function BarChartTile({ data, metricId }) {
         {hoveredIdx !== null && (
           <div className="flex items-center gap-4 bg-[#232D4B] text-white px-5 py-2.5 rounded-full shadow-xl border border-white/10">
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[hoveredIdx % CHART_COLORS.length] }} />
-            <span className="text-[10px] font-black uppercase tracking-widest">{data[hoveredIdx].queueId}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest">{nameLookup[data[hoveredIdx].queueId] || data[hoveredIdx].queueId}</span>
             <span className="w-px h-3 bg-white/20" />
             <span className="text-[10px] font-black text-[#E57200]">{(data[hoveredIdx].kpis.find((k) => k.id === metricId)?.value || 0).toFixed(1)}</span>
           </div>
