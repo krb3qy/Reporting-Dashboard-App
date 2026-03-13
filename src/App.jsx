@@ -63,7 +63,7 @@ export default function App() {
     { id: Date.now() + 3, name: 'Abandon %', formula: '(nAbandoned_count / nOffered_count) * 100', chartType: 'bar', size: '2x1' },
   ]);
   const [newMetric, setNewMetric] = useState({ name: '', formula: '', chartType: 'bar', size: '1x1' });
-  const [activeFilters, setActiveFilters] = useState(['queues', 'mediaTypes', 'direction']);
+  const [activeFilters, setActiveFilters] = useState([]);
   const [filterValues, setFilterValues] = useState({ queues: [], divisions: [], mediaTypes: [], direction: [], wrapUpCode: [], skills: [], users: [], dnis: [], ani: [], disconnectType: [], interactionType: [], usedRouting: [] });
   const [collapsedFilters, setCollapsedFilters] = useState({});
   const [activeMenu, setActiveMenu] = useState(null);
@@ -284,6 +284,18 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        {/* Debug bar — remove after testing */}
+        <div className="bg-slate-800 text-white text-[10px] font-mono px-10 py-1.5 flex gap-6 shrink-0">
+          <span>auth: {authenticated ? 'yes' : 'no'}</span>
+          <span>options: {optionsLoaded ? 'loaded' : 'pending'}</span>
+          <span>results: {rawData.results?.length ?? 0}</span>
+          <span>processed: {processedData.length}</span>
+          <span>loading: {loading ? 'yes' : 'no'}</span>
+          <span>interval: {dateStart.toISOString().split('T')[0]} to {dateEnd.toISOString().split('T')[0]}</span>
+          {error && <span className="text-red-400">ERR: {error}</span>}
+          <span>filters: {Object.entries(filterValues).filter(([,v]) => v.length > 0).map(([k,v]) => `${k}(${v.length})`).join(', ') || 'none'}</span>
+        </div>
 
         <main className="flex-1 overflow-y-auto p-12">
           {activeTab === 'dashboard' && (
