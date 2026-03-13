@@ -1,48 +1,71 @@
+const CLIENT_ID = '5fe6ef2a-158f-4e28-9b80-4566e2724639';
 const GC_AUTH_URL = 'https://login.usw2.pure.cloud/oauth/authorize';
 const REDIRECT_URI = 'https://krb3qy.github.io/Reporting-Dashboard-App/';
 const TOKEN_KEY = 'gc_access_token';
 const EXPIRY_KEY = 'gc_token_expiry';
 
-// Client ID will be set after GC OAuth client creation
-let CLIENT_ID = localStorage.getItem('gc_client_id') || '';
-
-export function setClientId(id) {
-  CLIENT_ID = id;
-  localStorage.setItem('gc_client_id', id);
+// Safe localStorage wrapper — cross-origin iframes may block storage access
+function safeGet(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
 }
-
-export function getClientId() {
-  return CLIENT_ID;
+function safeSet(key, val) {
+  try { localStorage.setItem(key, val); } catch { /* storage blocked */ }
+}
+function safeRemove(key) {
+  try { localStorage.removeItem(key); } catch { /* storage blocked */ }
 }
 
 /**
- * Check URL hash for token on page load (Implicit Grant callback).
- * Returns true if a token was parsed and stored.
+ * Initialize auth on page load.
+ * 1. Check URL hash for access_token (OAuth callback) → store and return authenticated
+ * 2. Check localStorage for valid token → return authenticated
+ * 3. If localhost → return dev mode (mock data, no redirect)
+ * 4. Otherwise → auto-redirect to GC login (user never sees unauthenticated state)
  */
-export function handleAuthCallback() {
+export function init() {
+  // 1. OAuth callback — token in URL hash
   const hash = window.location.hash;
-  if (!hash || !hash.includes('access_token')) return false;
-
-  const params = new URLSearchParams(hash.substring(1));
-  const token = params.get('access_token');
-  const expiresIn = parseInt(params.get('expires_in'), 10);
-
-  if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
-    localStorage.setItem(EXPIRY_KEY, String(Date.now() + expiresIn * 1000));
-    // Clean hash from URL
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-    return true;
+  if (hash && hash.includes('access_token')) {
+    const params = new URLSearchParams(hash.substring(1));
+    const token = params.get('access_token');
+    const expiresIn = parseInt(params.get('expires_in'), 10);
+    if (token) {
+      safeSet(TOKEN_KEY, token);
+      safeSet(EXPIRY_KEY, String(Date.now() + expiresIn * 1000));
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      return { authenticated: true };
+    }
   }
-  return false;
+
+  // 2. Existing valid token
+  const token = safeGet(TOKEN_KEY);
+  const expiry = parseInt(safeGet(EXPIRY_KEY) || '0', 10);
+  if (token && Date.now() < expiry) {
+    return { authenticated: true };
+  }
+
+  // 3. Dev mode — localhost gets mock data, no redirect
+  const hostname = window.location.hostname;
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return { authenticated: false, dev: true };
+  }
+
+  // 4. Auto-redirect to GC login
+  const params = new URLSearchParams({
+    response_type: 'token',
+    client_id: CLIENT_ID,
+    redirect_uri: REDIRECT_URI,
+  });
+  window.location.href = `${GC_AUTH_URL}?${params.toString()}`;
+  return { authenticated: false };
 }
 
 /**
  * Get stored token if still valid.
  */
 export function getToken() {
-  const token = localStorage.getItem(TOKEN_KEY);
-  const expiry = parseInt(localStorage.getItem(EXPIRY_KEY) || '0', 10);
+  const token = safeGet(TOKEN_KEY);
+  const expiry = parseInt(safeGet(EXPIRY_KEY) || '0', 10);
   if (token && Date.now() < expiry) return token;
   return null;
 }
@@ -55,26 +78,10 @@ export function isAuthenticated() {
 }
 
 /**
- * Redirect to GC login for Implicit Grant.
- */
-export function login() {
-  if (!CLIENT_ID) {
-    throw new Error('OAuth Client ID not configured. Set it in Settings.');
-  }
-
-  const params = new URLSearchParams({
-    response_type: 'token',
-    client_id: CLIENT_ID,
-    redirect_uri: REDIRECT_URI,
-  });
-
-  window.location.href = `${GC_AUTH_URL}?${params.toString()}`;
-}
-
-/**
- * Clear stored token.
+ * Clear stored token and reload to trigger re-auth.
  */
 export function logout() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(EXPIRY_KEY);
+  safeRemove(TOKEN_KEY);
+  safeRemove(EXPIRY_KEY);
+  window.location.reload();
 }

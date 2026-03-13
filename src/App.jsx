@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  RefreshCw, PlusCircle, MoreVertical, Layout, Table, Calculator, Trash2, LogIn, LogOut, Settings,
+  RefreshCw, PlusCircle, MoreVertical, Layout, Table, Calculator, Trash2, LogOut,
 } from 'lucide-react';
 import { AVAILABLE_RAW_METRICS } from './constants';
 import PieChartTile from './components/PieChartTile';
@@ -8,7 +8,7 @@ import BarChartTile from './components/BarChartTile';
 import SidebarBtn from './components/SidebarBtn';
 import FilterEngine from './components/FilterEngine';
 import FormulaStudio from './components/FormulaStudio';
-import { handleAuthCallback, isAuthenticated, login, logout, getClientId, setClientId } from './services/gcAuth';
+import { init as gcInit, isAuthenticated, logout } from './services/gcAuth';
 import { queryConversationAggregates, getQueues, getDivisions, buildAggregateFilter } from './services/gcApi';
 
 // Mock filter options (used when not authenticated)
@@ -55,23 +55,23 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [authenticated, setAuthenticated] = useState(false);
-  const [clientIdInput, setClientIdInput] = useState(getClientId());
-  const [showSettings, setShowSettings] = useState(false);
 
-  // Handle OAuth callback on mount
+  // Auto-authenticate on mount
   useEffect(() => {
-    const gotToken = handleAuthCallback();
-    if (gotToken || isAuthenticated()) {
+    const result = gcInit();
+    if (result.authenticated) {
       setAuthenticated(true);
+    } else if (result.dev) {
+      // Dev mode — load mock data
+      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues, MOCK_FILTER_OPTIONS.divisions));
     }
+    // If neither authenticated nor dev, gcInit already redirected to GC login
   }, []);
 
-  // Load data on mount or auth change
+  // Load live data when authenticated
   useEffect(() => {
     if (authenticated) {
       loadLiveData();
-    } else {
-      setRawData(generateMockData(MOCK_FILTER_OPTIONS.queues, MOCK_FILTER_OPTIONS.divisions));
     }
   }, [authenticated]);
 
@@ -149,14 +149,16 @@ export default function App() {
     }
   }
 
-  function handleSaveClientId() {
-    setClientId(clientIdInput.trim());
-    setShowSettings(false);
-  }
-
   // Iframe security check: refuse to render outside GC iframe (except localhost dev)
   const isDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  if (!isDev && window.top === window.self) {
+  let isInIframe = true;
+  try {
+    isInIframe = window.top !== window.self;
+  } catch {
+    // Cross-origin restriction means we ARE in an iframe — this is expected in GC
+    isInIframe = true;
+  }
+  if (!isDev && !isInIframe) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
         <div className="text-center p-12">
@@ -171,10 +173,8 @@ export default function App() {
     <div className="flex h-screen bg-[#F4F7F9] text-slate-900 overflow-hidden font-sans">
       {/* Sidebar */}
       <aside className="w-72 bg-[#1A2238] flex flex-col shadow-2xl z-20">
-        <div className="p-8 border-b border-white/5 flex flex-col items-center">
-          <div className="font-black text-white text-xl tracking-tighter">
-            UVA<span className="text-orange-500">HEALTH</span>
-          </div>
+        <div className="bg-white border-b border-slate-200 p-4 flex items-center justify-center">
+          <img src={import.meta.env.BASE_URL + "logo.svg"} alt="UVA Health" className="h-12" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-6 space-y-8">
@@ -195,30 +195,17 @@ export default function App() {
           </nav>
         </div>
 
-        {/* Auth controls at bottom of sidebar */}
-        <div className="p-6 border-t border-white/5 space-y-2">
-          <button
-            onClick={() => setShowSettings(!showSettings)}
-            className="w-full flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-400 hover:bg-white/5 hover:text-white transition-all"
-          >
-            <Settings size={16} /> Settings
-          </button>
-          {authenticated ? (
+        {/* Logout at bottom of sidebar */}
+        {authenticated && (
+          <div className="p-6 border-t border-white/5">
             <button
-              onClick={() => { logout(); setAuthenticated(false); }}
+              onClick={logout}
               className="w-full flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-400 hover:bg-white/5 hover:text-white transition-all"
             >
               <LogOut size={16} /> Logout
             </button>
-          ) : (
-            <button
-              onClick={() => { try { login(); } catch (e) { setError(e.message); } }}
-              className="w-full flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest bg-orange-600 text-white hover:bg-orange-700 transition-all"
-            >
-              <LogIn size={16} /> Connect to GC
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </aside>
 
       {/* Main content */}
@@ -229,15 +216,6 @@ export default function App() {
             <h1 className="text-lg font-black text-[#232D4B]">OPERATIONAL DASHBOARD</h1>
           </div>
           <div className="flex items-center gap-6">
-            {!authenticated && (
-              <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Mock Data</span>
-            )}
-            {loading && (
-              <span className="text-[10px] font-black text-cyan-500 uppercase tracking-widest animate-pulse">Loading...</span>
-            )}
-            {error && (
-              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest" title={error}>Error</span>
-            )}
             <button onClick={handleRefresh} className="p-2 text-slate-400 hover:text-orange-500 transition-colors">
               <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
             </button>
@@ -245,32 +223,6 @@ export default function App() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-12">
-          {/* Settings modal */}
-          {showSettings && (
-            <div className="max-w-lg mx-auto mb-8 bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-200">
-              <h3 className="font-black text-sm uppercase tracking-widest mb-6 text-[#232D4B] flex items-center gap-3">
-                <Settings className="text-orange-500" /> OAuth Configuration
-              </h3>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Client ID (Implicit Grant)</label>
-                  <input
-                    value={clientIdInput}
-                    onChange={(e) => setClientIdInput(e.target.value)}
-                    className="w-full bg-slate-50 border-0 p-4 rounded-2xl font-mono text-sm focus:ring-2 focus:ring-orange-500 outline-none"
-                    placeholder="Paste your GC OAuth Client ID here"
-                  />
-                </div>
-                <button
-                  onClick={handleSaveClientId}
-                  className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-orange-600/20 hover:bg-orange-700 transition-all uppercase tracking-widest"
-                >
-                  Save Client ID
-                </button>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'dashboard' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 auto-rows-[420px]">
               {metricsConfig.map((m) => (
