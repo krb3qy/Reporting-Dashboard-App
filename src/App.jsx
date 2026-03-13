@@ -309,9 +309,9 @@ export default function App() {
         {isDev && (
           <button
             onClick={() => {
-              setShowDevLog(!showDevLog);
-              if (!showDevLog) setActiveTab('log');
-              else if (activeTab === 'log') setActiveTab('dashboard');
+              const next = !showDevLog;
+              setShowDevLog(next);
+              if (!next && activeTab === 'log') setActiveTab('dashboard');
             }}
             className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-colors mr-2 ${
               showDevLog
@@ -383,11 +383,13 @@ export default function App() {
 
         {/* Main content */}
         {activeTab === 'table' ? (
-          <AnalyticsView
-            filterOptions={filterOptions}
-            nameLookup={nameLookup}
-            authenticated={authenticated}
-          />
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <AnalyticsView
+              filterOptions={filterOptions}
+              nameLookup={nameLookup}
+              authenticated={authenticated}
+            />
+          </div>
         ) : activeTab === 'log' ? (
           /* API Log view */
           <main className="flex-1 overflow-hidden flex flex-col">

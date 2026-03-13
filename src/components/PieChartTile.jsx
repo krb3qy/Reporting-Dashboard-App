@@ -8,29 +8,43 @@ export default function PieChartTile({ data, metricId, metricName, unit, nameLoo
   const [hoveredIdx, setHoveredIdx] = useState(null);
 
   // Sort by value descending, take top N, bucket the rest as "Other"
-  const { slices, totalVal } = useMemo(() => {
+  const { slices, sliceTotal, avg } = useMemo(() => {
     const withVal = data.map((row) => {
       const val = row.kpis.find((k) => k.id === metricId)?.value || 0;
       return { ...row, _val: val };
     }).sort((a, b) => b._val - a._val);
 
-    const total = withVal.reduce((acc, r) => acc + r._val, 0);
+    const allTotal = withVal.reduce((acc, r) => acc + r._val, 0);
+    const average = withVal.length > 0 ? allTotal / withVal.length : 0;
 
     if (withVal.length <= MAX_SLICES) {
-      return { slices: withVal, totalVal: total };
+      const st = withVal.reduce((acc, r) => acc + r._val, 0);
+      return { slices: withVal, sliceTotal: st, avg: average };
     }
 
     const top = withVal.slice(0, MAX_SLICES - 1);
     const otherItems = withVal.slice(MAX_SLICES - 1);
     const otherCount = otherItems.length;
-    let otherVal;
+
+    // Display value: average for percent/seconds, sum for counts
+    let otherDisplayVal;
     if (unit === 'percent' || unit === 'seconds') {
-      otherVal = otherItems.reduce((acc, r) => acc + r._val, 0) / otherCount;
+      otherDisplayVal = otherItems.reduce((acc, r) => acc + r._val, 0) / otherCount;
     } else {
-      otherVal = otherItems.reduce((acc, r) => acc + r._val, 0);
+      otherDisplayVal = otherItems.reduce((acc, r) => acc + r._val, 0);
     }
-    top.push({ _val: otherVal, _isOther: true, _otherCount: otherCount, queueId: `other_${otherCount}`, kpis: [{ id: metricId, value: otherVal }] });
-    return { slices: top, totalVal: total };
+
+    top.push({
+      _val: otherDisplayVal,
+      _isOther: true,
+      _otherCount: otherCount,
+      queueId: `other_${otherCount}`,
+      kpis: [{ id: metricId, value: otherDisplayVal }],
+    });
+
+    // Slice total = sum of displayed slice values (makes a full pie)
+    const st = top.reduce((acc, r) => acc + r._val, 0);
+    return { slices: top, sliceTotal: st, avg: average };
   }, [data, metricId, unit]);
 
   if (data.length === 0) {
@@ -46,18 +60,15 @@ export default function PieChartTile({ data, metricId, metricName, unit, nameLoo
     return nameLookup[slice.queueId] || slice.queueId;
   }
 
-  // Compute average across all original data, not just top N
-  const avg = data.length > 0 ? totalVal / data.length : 0;
-
   return (
-    <div className="flex flex-col items-center justify-center w-full h-full relative">
-      <div className="relative w-52 h-52 flex items-center justify-center">
-        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 overflow-visible">
+    <div className="flex flex-col items-center justify-center w-full h-full relative overflow-hidden">
+      <div className="relative w-40 h-40 lg:w-52 lg:h-52 flex items-center justify-center shrink-0">
+        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
           {slices.map((slice, i) => {
-            const percent = totalVal > 0 ? (slice._val / totalVal) * 100 : 0;
+            const percent = sliceTotal > 0 ? (slice._val / sliceTotal) * 100 : 0;
             const offset = slices
               .slice(0, i)
-              .reduce((acc, s) => acc + (totalVal > 0 ? (s._val / totalVal) * 100 : 0), 0);
+              .reduce((acc, s) => acc + (sliceTotal > 0 ? (s._val / sliceTotal) * 100 : 0), 0);
             return (
               <g key={i} onMouseEnter={() => setHoveredIdx(i)} onMouseLeave={() => setHoveredIdx(null)} className="cursor-pointer">
                 <circle cx="50" cy="50" r="38" fill="transparent" stroke={CHART_COLORS[i % CHART_COLORS.length]} strokeWidth={hoveredIdx === i ? '14' : '12'} strokeDasharray={`${percent} ${100 - percent}`} strokeDashoffset={-offset} pathLength="100" className="transition-all duration-200" />
@@ -77,7 +88,7 @@ export default function PieChartTile({ data, metricId, metricName, unit, nameLoo
       </div>
 
       {/* Tooltip */}
-      <div className={`mt-4 h-10 flex items-center justify-center transition-all duration-300 ${hoveredIdx !== null ? 'opacity-100' : 'opacity-0'}`}>
+      <div className={`mt-2 h-10 flex items-center justify-center transition-all duration-300 ${hoveredIdx !== null ? 'opacity-100' : 'opacity-0'}`}>
         {hoveredIdx !== null && (
           <div className="flex items-center gap-3 bg-[#232D4B] text-white px-5 py-2.5 rounded-full shadow-xl border border-white/10">
             <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[hoveredIdx % CHART_COLORS.length] }} />

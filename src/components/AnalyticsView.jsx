@@ -198,7 +198,7 @@ export default function AnalyticsView({ filterOptions, nameLookup, authenticated
   const activeFilterCount = Object.values(filterValues).reduce((acc, v) => acc + v.length, 0);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full w-full overflow-hidden">
       {/* Toolbar */}
       <div className="bg-white border-b border-slate-200 px-4 lg:px-8 py-3 lg:py-4 flex items-center gap-2 lg:gap-4 flex-wrap shrink-0">
         {/* Date picker */}
