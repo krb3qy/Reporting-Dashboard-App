@@ -11,6 +11,7 @@ import FormulaStudio from './components/FormulaStudio';
 import DateRangePicker from './components/DateRangePicker';
 import { init as gcInit, isAuthenticated, logout } from './services/gcAuth';
 import { queryConversationAggregates, getQueues, getDivisions, getSkills, getWrapUpCodes, getUsers, buildAggregateFilter } from './services/gcApi';
+import { formatValue } from './utils/format';
 
 // Mock filter options (used when not authenticated)
 const MOCK_FILTER_OPTIONS = {
@@ -58,11 +59,11 @@ function buildNameLookup(filterOptions) {
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [metricsConfig, setMetricsConfig] = useState([
-    { id: Date.now() + 1, name: 'Answer Rate', formula: '(tAnswered_count / nOffered_count) * 100', chartType: 'pie', size: '1x1' },
-    { id: Date.now() + 2, name: 'AHT (Sec)', formula: '(tTalk_sum + tHeld_sum + tAcw_sum) / tAnswered_count / 1000', chartType: 'bar', size: '1x1' },
-    { id: Date.now() + 3, name: 'Abandon %', formula: '(nAbandoned_count / nOffered_count) * 100', chartType: 'bar', size: '2x1' },
+    { id: Date.now() + 1, name: 'Answer Rate', formula: '(tAnswered_count / nOffered_count) * 100', chartType: 'pie', size: '1x1', unit: 'percent' },
+    { id: Date.now() + 2, name: 'Avg Handle Time', formula: '(tTalk_sum + tHeld_sum + tAcw_sum) / tAnswered_count / 1000', chartType: 'bar', size: '1x1', unit: 'seconds' },
+    { id: Date.now() + 3, name: 'Abandon Rate', formula: '(tAbandon_count / nOffered_count) * 100', chartType: 'bar', size: '2x1', unit: 'percent' },
   ]);
-  const [newMetric, setNewMetric] = useState({ name: '', formula: '', chartType: 'bar', size: '1x1' });
+  const [newMetric, setNewMetric] = useState({ name: '', formula: '', chartType: 'bar', size: '1x1', unit: 'count' });
   const [activeFilters, setActiveFilters] = useState([]);
   const [filterValues, setFilterValues] = useState({ queues: [], divisions: [], mediaTypes: [], direction: [], wrapUpCode: [], skills: [], users: [], dnis: [], ani: [], disconnectType: [], interactionType: [], usedRouting: [] });
   const [collapsedFilters, setCollapsedFilters] = useState({});
@@ -232,47 +233,13 @@ export default function App() {
   // }
 
   return (
-    <div className="flex h-screen bg-[#F4F7F9] text-slate-900 overflow-hidden font-sans">
-      {/* Sidebar */}
-      <aside className="w-72 bg-[#232D4B] flex flex-col shadow-2xl z-20">
-        <div className="bg-white border-b border-slate-200 p-4 flex items-center justify-center">
+    <div className="flex flex-col h-screen bg-[#F4F7F9] text-slate-900 overflow-hidden font-sans">
+      {/* Unified header bar — full width */}
+      <header className="h-20 bg-white border-b border-slate-200 flex items-center shrink-0 shadow-sm z-30">
+        <div className="w-72 shrink-0 h-full flex items-center justify-center px-4">
           <img src={import.meta.env.BASE_URL + "logo.svg"} alt="UVA Health" className="h-12" />
         </div>
-
-        <div className="flex-1 overflow-y-auto p-5 space-y-6">
-          <FilterEngine
-            activeFilters={activeFilters}
-            setActiveFilters={setActiveFilters}
-            filterValues={filterValues}
-            setFilterValues={setFilterValues}
-            filterOptions={filterOptions}
-            collapsedFilters={collapsedFilters}
-            setCollapsedFilters={setCollapsedFilters}
-            nameLookup={nameLookup}
-          />
-
-          <nav className="space-y-2 pt-5 border-t border-white/5">
-            <SidebarBtn active={activeTab === 'dashboard'} label="Visuals" icon={<Layout size={16} />} onClick={() => setActiveTab('dashboard')} />
-            <SidebarBtn active={activeTab === 'table'} label="Analytics" icon={<Table size={16} />} onClick={() => setActiveTab('table')} />
-            <SidebarBtn active={activeTab === 'config'} label="Custom Logic" icon={<Calculator size={16} />} onClick={() => setActiveTab('config')} />
-          </nav>
-        </div>
-
-        {authenticated && (
-          <div className="p-5 border-t border-white/5">
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-400 hover:bg-white/5 hover:text-white transition-all"
-            >
-              <LogOut size={16} /> Logout
-            </button>
-          </div>
-        )}
-      </aside>
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-10 shrink-0 shadow-sm z-10">
+        <div className="flex-1 flex items-center justify-between px-10">
           <div className="flex flex-col">
             <span className="text-[10px] font-black text-[#4D4D4F] uppercase tracking-widest">Command Center</span>
             <h1 className="text-lg font-black text-[#232D4B]">OPERATIONAL DASHBOARD</h1>
@@ -283,20 +250,56 @@ export default function App() {
               <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
-        </header>
-
-        {/* Debug bar — remove after testing */}
-        <div className="bg-slate-800 text-white text-[10px] font-mono px-10 py-1.5 flex gap-6 shrink-0">
-          <span>auth: {authenticated ? 'yes' : 'no'}</span>
-          <span>options: {optionsLoaded ? 'loaded' : 'pending'}</span>
-          <span>results: {rawData.results?.length ?? 0}</span>
-          <span>processed: {processedData.length}</span>
-          <span>loading: {loading ? 'yes' : 'no'}</span>
-          <span>interval: {dateStart.toISOString().split('T')[0]} to {dateEnd.toISOString().split('T')[0]}</span>
-          {error && <span className="text-red-400">ERR: {error}</span>}
-          <span>filters: {Object.entries(filterValues).filter(([,v]) => v.length > 0).map(([k,v]) => `${k}(${v.length})`).join(', ') || 'none'}</span>
         </div>
+      </header>
 
+      {/* Debug bar — remove after testing */}
+      <div className="bg-slate-800 text-white text-[10px] font-mono px-10 py-1.5 flex gap-6 shrink-0 z-20">
+        <span>auth: {authenticated ? 'yes' : 'no'}</span>
+        <span>options: {optionsLoaded ? 'loaded' : 'pending'}</span>
+        <span>results: {rawData.results?.length ?? 0}</span>
+        <span>processed: {processedData.length}</span>
+        <span>loading: {loading ? 'yes' : 'no'}</span>
+        <span>interval: {dateStart.toISOString().split('T')[0]} to {dateEnd.toISOString().split('T')[0]}</span>
+        {error && <span className="text-red-400">ERR: {error}</span>}
+        <span>filters: {Object.entries(filterValues).filter(([,v]) => v.length > 0).map(([k,v]) => `${k}(${v.length})`).join(', ') || 'none'}</span>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Sidebar — starts below header */}
+        <aside className="w-72 bg-[#232D4B] flex flex-col shadow-2xl z-10 shrink-0">
+          <div className="flex-1 overflow-y-auto p-5 space-y-6">
+            <FilterEngine
+              activeFilters={activeFilters}
+              setActiveFilters={setActiveFilters}
+              filterValues={filterValues}
+              setFilterValues={setFilterValues}
+              filterOptions={filterOptions}
+              collapsedFilters={collapsedFilters}
+              setCollapsedFilters={setCollapsedFilters}
+              nameLookup={nameLookup}
+            />
+
+            <nav className="space-y-2 pt-5 border-t border-white/5">
+              <SidebarBtn active={activeTab === 'dashboard'} label="Visuals" icon={<Layout size={16} />} onClick={() => setActiveTab('dashboard')} />
+              <SidebarBtn active={activeTab === 'table'} label="Analytics" icon={<Table size={16} />} onClick={() => setActiveTab('table')} />
+              <SidebarBtn active={activeTab === 'config'} label="Custom Logic" icon={<Calculator size={16} />} onClick={() => setActiveTab('config')} />
+            </nav>
+          </div>
+
+          {authenticated && (
+            <div className="p-5 border-t border-white/5">
+              <button
+                onClick={logout}
+                className="w-full flex items-center gap-3 px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest text-slate-400 hover:bg-white/5 hover:text-white transition-all"
+              >
+                <LogOut size={16} /> Logout
+              </button>
+            </div>
+          )}
+        </aside>
+
+        {/* Main content */}
         <main className="flex-1 overflow-y-auto p-12">
           {activeTab === 'dashboard' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 auto-rows-[420px]">
@@ -335,9 +338,9 @@ export default function App() {
                   </div>
                   <div className="flex-1 overflow-visible">
                     {m.chartType === 'pie' ? (
-                      <PieChartTile data={processedData} metricId={m.id} nameLookup={nameLookup} />
+                      <PieChartTile data={processedData} metricId={m.id} metricName={m.name} unit={m.unit} nameLookup={nameLookup} />
                     ) : (
-                      <BarChartTile data={processedData} metricId={m.id} nameLookup={nameLookup} />
+                      <BarChartTile data={processedData} metricId={m.id} metricName={m.name} unit={m.unit} nameLookup={nameLookup} />
                     )}
                   </div>
                 </div>
@@ -378,7 +381,7 @@ export default function App() {
                       <tr key={i} className="hover:bg-slate-50 transition-colors">
                         <td className="p-8 text-xs font-black text-[#232D4B]">{resolveName(row.queueId)}</td>
                         {row.kpis.map((k) => (
-                          <td key={k.id} className="p-8 text-xs font-black text-slate-700">{k.value.toFixed(1)}</td>
+                          <td key={k.id} className="p-8 text-xs font-black text-slate-700">{formatValue(k.value, k.unit)}</td>
                         ))}
                       </tr>
                     ))}

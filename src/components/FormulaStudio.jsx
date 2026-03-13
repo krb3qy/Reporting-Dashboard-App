@@ -6,7 +6,7 @@ export default function FormulaStudio({ metricsConfig, setMetricsConfig, newMetr
   const addMetric = () => {
     if (!newMetric.name || !newMetric.formula) return;
     setMetricsConfig([...metricsConfig, { ...newMetric, id: Date.now() }]);
-    setNewMetric({ name: '', formula: '', chartType: 'bar', size: '1x1' });
+    setNewMetric({ name: '', formula: '', chartType: 'bar', size: '1x1', unit: 'count' });
   };
 
   const deleteMetric = (id) => setMetricsConfig(metricsConfig.filter((m) => m.id !== id));
@@ -17,7 +17,7 @@ export default function FormulaStudio({ metricsConfig, setMetricsConfig, newMetr
         <h3 className="font-black text-sm uppercase tracking-widest mb-10 text-[#232D4B] flex items-center gap-3">
           <Calculator className="text-[#E57200]" /> Formula Studio
         </h3>
-        <div className="grid grid-cols-2 gap-8 mb-8">
+        <div className="grid grid-cols-3 gap-8 mb-8">
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Metric Display Name</label>
             <input
@@ -36,6 +36,19 @@ export default function FormulaStudio({ metricsConfig, setMetricsConfig, newMetr
             >
               <option value="bar">Bar Chart</option>
               <option value="pie">Pie Chart (1x1 Only)</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase text-slate-400 ml-2">Value Format</label>
+            <select
+              value={newMetric.unit || 'count'}
+              onChange={(e) => setNewMetric({ ...newMetric, unit: e.target.value })}
+              className="w-full bg-slate-50 border-0 p-4 rounded-2xl font-bold outline-none"
+            >
+              <option value="count">Count / Number</option>
+              <option value="percent">Percentage (%)</option>
+              <option value="seconds">Duration (seconds → m:ss)</option>
+              <option value="milliseconds">Duration (ms → m:ss)</option>
             </select>
           </div>
         </div>
@@ -78,7 +91,7 @@ export default function FormulaStudio({ metricsConfig, setMetricsConfig, newMetr
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-[9px] font-black text-slate-300 uppercase">
-                  {m.chartType} &bull; {m.size}
+                  {m.chartType} &bull; {m.size} &bull; {m.unit || 'count'}
                 </span>
                 <button onClick={() => deleteMetric(m.id)} className="text-slate-300 hover:text-red-500 transition-colors">
                   <Trash2 size={16} />
