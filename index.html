@@ -10,6 +10,10 @@
     <link rel="stylesheet" crossorigin href="/Reporting-Dashboard-App/assets/index-CU94-KKe.css">
   </head>
   <body>
-    <div id="root"></div>
+    <div id="diag" style="padding:2rem;font-family:sans-serif;font-size:18px;color:#E57200;background:#232D4B;position:fixed;top:0;left:0;right:0;z-index:9999">
+      HTML LOADED — waiting for JS...
+    </div>
+    <div id="root"></div>
+    <script>document.getElementById('diag').textContent = 'INLINE JS OK — waiting for module...';</script>
   </body>
 </html>
