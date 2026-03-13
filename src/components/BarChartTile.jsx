@@ -33,13 +33,13 @@ export default function BarChartTile({ data, metricId, metricName, unit, nameLoo
 
   return (
     <div className="flex flex-col w-full h-full relative">
-      <div className="flex-1 w-full flex items-end gap-2 px-4 pt-8 overflow-hidden">
+      <div className="flex-1 w-full flex items-end gap-1 px-3 pt-8 min-w-0">
         {bars.map((bar, i) => {
           const height = maxVal > 0 ? (bar._val / maxVal) * 80 : 5;
           return (
             <div
               key={i}
-              className="flex-1 flex flex-col items-center h-full justify-end relative z-0"
+              className="flex-1 min-w-0 flex flex-col items-center h-full justify-end relative z-0"
               onMouseEnter={() => setHoveredIdx(i)}
               onMouseLeave={() => setHoveredIdx(null)}
             >
